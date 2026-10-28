@@ -1,326 +1,251 @@
-# Hotel Booking Agent
+# Hotel Booking Customer Support Agent
 
-An AI-powered hotel booking assistant designed to help travelers discover, compare, and book accommodations using natural-language conversations. This project is structured around the concepts described in the HotelAgent Detailed Design v6.0 and is intended to serve as a clean foundation for a production-ready hotel concierge and booking workflow.
+An AI-powered customer support assistant for hotel bookings. It helps travelers ask questions, view available rooms, compare options, and complete reservations through a natural-language chat experience.
+
+This project focuses on a support-first workflow where the agent acts like a hotel booking concierge and reservation assistant, not just a generic travel planner.
 
 ## Overview
 
-The Hotel Booking Agent combines conversational interfaces, business rules, and hotel inventory systems to create a seamless booking experience. Instead of requiring users to navigate multiple tabs and filters manually, the system interprets user intent, searches relevant hotels, compares options, and helps complete the reservation flow in a guided and trustworthy way.
+The Hotel Booking Customer Support Agent helps users:
 
-The system is designed for:
+- check room availability for a hotel or destination
+- list available rooms and rates
+- answer booking-related questions
+- recommend appropriate rooms based on guest needs
+- guide the user through booking steps
+- confirm reservations and summarize booking details
 
-- Travel planning and hotel search
-- Personalized accommodation recommendations
-- Booking assistance with constraints and preferences
-- Multistep flow orchestration from search to confirmation
-- Integration with hotel inventory, pricing, payment, and guest profile services
+Instead of forcing users to browse multiple websites, the agent handles the process conversationally and keeps the booking journey simple and friendly.
 
-## Why this project matters
+## What the agent does
 
-Booking a hotel is often fragmented across search engines, mapping tools, booking platforms, and review sites. The Hotel Booking Agent centralizes this into a single conversational experience with:
+### 1. Customer support for hotel booking
+The agent can support users who want to:
 
-- intent understanding
-- policy-aware recommendations
-- dynamic filtering based on traveler constraints
-- transparent pricing and booking decisions
-- resilient multi-step workflows
+- ask about room availability
+- compare room types
+- check amenities and hotel policies
+- understand pricing and cancellation rules
+- make a booking with minimal friction
 
-This README describes the core product vision, architecture, functional design, and operational model.
+### 2. List available rooms and rates
+The system can query hotel inventory and return a structured list such as:
 
-## Product goals
+- room type
+- price per night
+- total cost for the stay
+- occupancy limit
+- amenities
+- cancellation policy
+- availability status
 
-1. Help users quickly find hotels matching their preferences.
-2. Reduce friction in planning and booking decisions.
-3. Provide trustworthy, explainable recommendations.
-4. Support both direct user interaction and backend orchestration.
-5. Scale to multiple properties, cities, and booking scenarios.
+Example:
 
-## Core capabilities
+- Deluxe King Room — $180/night — 2 guests
+- Family Suite — $240/night — 4 guests
+- Executive Twin Room — $210/night — 2 guests
 
-### 1. Natural-language hotel search
-Users can describe their needs in plain language, such as:
+### 3. Booking assistance
+The agent helps complete the booking process by:
 
-- "A family-friendly hotel in Dubai near the marina under $180/night"
-- "A quiet boutique stay near downtown with free parking"
-- "A luxury 5-star property with breakfast and airport transfer"
+- confirming guest details
+- validating dates and occupancy
+- checking room availability
+- presenting final pricing
+- confirming payment information
+- creating the reservation
 
-The system interprets these requests and translates them into structured search and filtering logic.
+### 4. Support-style conversational flow
+The experience is designed like a live support agent:
 
-### 2. Preference-aware recommendation engine
-The agent considers:
+- greet the customer
+- ask clarifying questions when needed
+- present available options clearly
+- explain trade-offs between rooms and price
+- confirm the final booking before payment
 
-- destination and dates
-- traveler count and room type
-- budget tolerance
-- hotel rating or star category
-- amenities such as Wi-Fi, pool, parking, breakfast, and gym
-- proximity to key locations
-- traveler style such as business, family, luxury, or budget
+## Core workflow
 
-### 3. Comparison and decision support
-Users can compare alternatives based on:
+1. User asks for a hotel, dates, or room availability.
+2. The agent extracts the destination, check-in/check-out dates, and guest requirements.
+3. It checks available rooms and room rates.
+4. It ranks or filters rooms by guest preferences and budget.
+5. It presents the available options in a friendly, support-oriented format.
+6. The user selects a room.
+7. The agent confirms the reservation details and completes the booking flow.
+8. The system stores the confirmed booking and returns a summary.
 
-- nightly price
-- total booking cost
-- cancellation terms
-- reviews and ratings
-- distance to destination
-- amenities and room features
+## Example conversations
 
-### 4. Booking flow orchestration
-The system manages the booking journey across:
+### Example 1: room availability
+User: "Do you have a room for 2 adults in Dubai for 3 nights next weekend?"
 
-- hotel search
-- property shortlist
-- room selection
-- rate validation
-- guest details
-- payment authorization
-- confirmation generation
+Agent: "I checked the available rooms for your dates. Here are the current options:"
 
-### 5. Policy and validation checks
-The system helps ensure:
+- Deluxe King Room — $180/night — free Wi-Fi, breakfast included
+- Executive Room — $210/night — city view, breakfast included
+- Family Suite — $260/night — 2 adults + 1 child
 
-- valid travel dates and occupancy
-- eligibility for selected room type and features
-- minimum age or guest policies where applicable
-- room availability and pricing consistency
-- customer identity / payment checks if required
+### Example 2: booking help
+User: "I want the cheapest available room with free cancellation."
 
-## High-level architecture
+Agent: "The cheapest option available is the Standard Double Room at $150/night with free cancellation. Would you like me to reserve it for you?"
 
-```mermaid
-flowchart LR
-    A[User / Chat Interface] --> B[Hotel Booking Agent]
-    B --> C[Intent Understanding]
-    B --> D[Search & Retrieval]
-    B --> E[Recommendation Logic]
-    B --> F[Booking Workflow Orchestrator]
+### Example 3: booking confirmation
+User: "Book the Deluxe King Room for 3 nights."
 
-    C --> G[Hotel Catalog / Inventory]
-    D --> G
-    E --> H[Pricing & Availability Services]
-    F --> I[Reservation / Payment Services]
-    F --> J[Confirmation & Notifications]
-
-    B --> K[Session Memory / User Context]
-    K --> E
-```
+Agent: "I’ve reserved the Deluxe King Room for your selected dates. Your total is $540 including taxes. Confirmation details are ready."
 
 ## System components
 
-### User interaction layer
-Responsible for capturing user requests and presenting replies in a conversational, friendly experience.
+### Customer interaction layer
+Handles user messages and maintains conversational context.
 
-Key responsibilities:
+Responsibilities:
 
-- message parsing
-- clarification prompts
-- conversational state tracking
-- result presentation and follow-up questions
+- understand natural-language hotel requests
+- ask follow-up questions when needed
+- present room options clearly
+- handle booking conversations in a friendly way
 
-### Intent and policy engine
-Translates the user’s request into a formal action plan.
+### Room availability and pricing layer
+Fetches live room inventory and rate information.
 
-Examples:
+Responsibilities:
 
-- hotel search request
-- price comparison request
-- room-selection request
-- booking confirmation intent
-
-This layer also validates whether the user request is actionable and whether additional information is required.
-
-### Search and retrieval layer
-Queries relevant hotel records using destination, dates, filters, and user preferences.
-
-This layer may source data from:
-
-- internal hotel catalog
-- third-party inventory providers
-- pricing and availability APIs
-- geospatial and property metadata services
-
-### Recommendation and ranking layer
-Ranks hotels based on fit, not just price. It may combine:
-
-- relevance score
-- user preference match
-- quality/ratings
-- price-to-value ratio
-- availability confidence
+- check room availability
+- compare nightly rates
+- verify occupancy limits
+- include taxes and fees in final pricing
 
 ### Booking orchestration layer
-Coordinates the multi-step reservation creation process. This is the business-aware control plane that sequences the actions needed to finalize a booking.
+Coordinates the reservation lifecycle.
 
-### Persistence and context layer
-Tracks:
+Responsibilities:
 
-- user session
-- booking intent
-- selected hotel and room
-- previous conversation context
-- partial bookings or abandoned flows
+- validate guest and room selection
+- manage booking state
+- confirm reservation details
+- process payment and finalization steps
 
-## Functional workflow
+### Policy and support rules layer
+Applies hotel policies and customer support requirements.
 
-### Scenario: user wants a hotel in a destination
+Responsibilities:
 
-1. The user asks for a hotel using natural language.
-2. The agent extracts destination, travel dates, occupancy, and budget.
-3. It validates the request and checks for missing data.
-4. The search layer queries hotel inventory and price data.
-5. Recommendations are ranked based on user preferences.
-6. The user reviews options and asks for more detail.
-7. The agent provides comparison details.
-8. The user selects a room and continues to booking.
-9. The booking flow validates availability and policy constraints.
-10. The system confirms the reservation and returns booking details.
+- check cancellation terms
+- validate age and occupancy rules
+- enforce special booking conditions
+- prevent invalid reservations
+
+### Persistence and customer context layer
+Stores customer information, booking progress, and reservation history.
+
+Responsibilities:
+
+- maintain chat session state
+- save selected rooms and quotes
+- retain user preferences
+- keep booking records for future support
 
 ## Data model concepts
 
-The design generally requires a few core entities:
+The application generally involves entities such as:
 
-- User or traveler profile
+- Customer / traveler profile
 - Hotel property
-- Room offering
-- Price and availability record
+- Room type
+- Availability record
+- Rate and pricing information
 - Booking request
-- Reservation confirmation
+- Confirmed reservation
 - Payment transaction
-- Review / rating metadata
+- Support conversation context
 
-### Example conceptual entities
+## Business rules
 
-- Property: hotel identity, location, amenities, category, rating
-- Room: room type, capacity, features, occupancy limits
-- Rate: nightly rate, taxes, discounts, cancellation rules
-- Booking: check-in/out, room, guest info, status, total paid
-- Session: chat context, selected property, pending actions
+The agent should validate:
 
-## Business rules and validation
+- valid travel dates
+- room availability at the selected dates
+- guest count against room capacity
+- policy restrictions and cancellation terms
+- pricing consistency across room and date selection
+- correct booking confirmation before final payment
 
-The system should explicitly enforce business rules such as:
-
-- date validity and no impossible date ranges
-- valid guest counts vs room capacity
-- only show available properties
-- apply price and tax formulas consistently
-- prevent invalid booking transitions
-- handle partial and failed reservation attempts gracefully
-
-## Non-functional requirements
+## Non-functional goals
 
 ### Reliability
-The platform should safely recover from transient service failures, not lose conversation state, and preserve the user’s progress.
+The system should recover gracefully from temporary errors and keep the booking flow intact.
 
 ### Scalability
-The architecture should support expanding to more cities, providers, hotel records, and concurrent travelers.
+It should support multiple hotels, cities, room types, and active customer sessions.
 
 ### Security
-Protect sensitive user and payment data using encrypted transport, secure storage patterns, and least-privilege access for internal services.
+Customer data, hotel data, and payment information should be protected with secure handling and restricted access.
 
 ### Observability
-Monitor:
+Track room search latency, booking success, failed attempts, and customer drop-off moments.
 
-- search latency
-- recommendation quality
-- booking success rate
-- error rates by provider
-- user abandonment points
+## Recommended technology stack
 
-### User trust
-The agent should avoid misleading or overly aggressive recommendations. It should explain trade-offs and present pricing clearly.
+A practical implementation can use:
 
-## Recommended technologies
-
-Although this repository may evolve across different implementations, the solution architecture typically fits well with:
-
-- frontend or conversational UI
-- backend service layer
-- LLM orchestration or prompt-driven agent runtime
-- hotel and pricing APIs
-- relational or document database for booking and profile records
-- monitoring and logging stack
-- message queue or event-driven orchestration for async workflows
+- frontend or conversational chat interface
+- backend API service
+- LLM orchestration or agent runtime
+- hotel inventory and pricing APIs
+- database for bookings, rooms, and customer records
+- monitoring and logging tools
+- message queue or workflow orchestration for booking steps
 
 ## Deployment model
 
 The system can be deployed as:
 
-- a web app with embedded chat UI
-- a backend API service with agent orchestration
-- a hybrid setup with provider integrations and orchestrated workflows
-
-Typical deployment concerns:
-
-- environment separation: dev/staging/prod
-- provider credential management
-- rate-limited API access
-- failover for third-party booking systems
-- audit logs for payment and reservation operations
-
-## Development workflow
-
-A production-ready delivery process should include:
-
-- unit tests for recommendation and validation logic
-- integration tests with booking APIs
-- conversation flow regression tests
-- security and privacy checks
-- performance benchmarking for booking and search operations
+- a web app with built-in chat support
+- a backend booking service with AI orchestration
+- a hybrid setup combining hotel integrations and workflow automation
 
 ## Example use cases
 
 ### Leisure traveler
-A user wants a romantic hotel near the beach with a pool and breakfast for 3 nights under a specific budget.
+A guest wants a budget-friendly room in Dubai with free Wi-Fi and breakfast.
 
 ### Business traveler
-A user needs a hotel near a convention center with reliable Wi-Fi and late checkout.
+A user needs a room near a business district with early check-in and reliable internet.
 
 ### Family trip
-A user is booking for 4 guests and wants family rooms, nearby attractions, and flexible cancellation.
+A family wants a room for 4 people with extra bedding and flexible cancellation.
 
-### Last-minute travel
-A user searches for available hotels in a city for tonight and needs quickly ranked options and fast booking decisions.
-
-## Risks and considerations
-
-- incomplete inventory data can lead to misleading recommendations
-- policy inconsistencies across providers need to be normalized
-- price volatility requires timely freshness checks
-- user intent can be ambiguous and may need clarification
-- payment and booking flows require careful error handling
+### Last-minute stay
+A traveler asks for a room tonight and needs the cheapest available option quickly.
 
 ## Roadmap
 
-Potential future milestones:
+Possible future improvements:
 
-- personalized traveler profiles
-- loyalty program integration
-- multilingual support
-- dynamic price alerts
-- itinerary-aware hotel recommendations
-- mobile-first UX
-- support for group bookings and corporate travel
+- personalized recommendations by traveler history
+- loyalty and membership support
+- multilingual customer support
+- hotel-specific policies and upsell flows
+- booking reminders and post-stay follow-up
+- integration with payment and CRM systems
 
 ## Contribution guidance
 
 Contributions are welcome if they improve:
 
-- booking workflow reliability
-- recommendation quality
-- API integration quality
-- user experience and clarity
+- booking accuracy
+- room availability handling
+- customer support quality
+- responsiveness and reliability
 - testing and observability
-
-Please keep changes aligned with the design principles of the HotelAgent Detailed Design v6.0 and ensure the system remains user-friendly and trustworthy.
 
 ## Summary
 
-The Hotel Booking Agent is a conversational, policy-aware, and operationally robust solution for hotel search and reservation. It transforms fragmented travel planning into a guided experience that can help users quickly find suitable hotels, compare options, and confidently complete a booking.
-
-This project represents a strong foundation for building a modern AI-driven accommodation assistant with real business value.
+This project is a hotel customer support and booking agent that helps users discover room options, compare prices, and complete reservations through a simple conversational experience. Its core value is combining support, availability checks, and booking assistance into one intelligent workflow.
 
 ---
 
-If you want, this README can also be adapted into a more technical version for engineers, a product-focused version for stakeholders, or a polished GitHub landing page with badges, screenshots, and a project architecture diagram.
+This README is centered on a customer support experience where the agent acts as a helpful hotel assistant that books for customers and lists available rooms and rates.
