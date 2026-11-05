@@ -1,26 +1,46 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from models.connection import get_db
-from models.db_models import GuestSession
-from handler.session_handler import get_or_create_guest_session
+from models.db_models import UserAccount, UserSession
+from handler.session_handler import verify_and_clean_user_session
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
-def get_current_session(
-    x_session_token: Optional[str] = Header(None),
+@router.get("/verify")
+def verify_session(
+    x_session_token: Optional[str] = Header(None, alias="X-Session-Token"),
     db: Session = Depends(get_db)
-) -> tuple[GuestSession, str]:
-    return get_or_create_guest_session(db, raw_token=x_session_token)
-
-@router.post("")
-def create_or_restore_session(
-    session_data: tuple[GuestSession, str] = Depends(get_current_session)
 ):
-    """Issues or validates an anonymous guest session token."""
-    session, token = session_data
+    """
+    Verifies if the current user session token is valid and unexpired,
+    returning user account details for automatic frontend session restoration.
+    """
+    if not x_session_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Session token missing."
+        )
+    
+    user = verify_and_clean_user_session(db, x_session_token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid or expired session token."
+        )
+    
+    session = db.query(UserSession).filter_by(session_token_hash=x_session_token).first()
+
     return {
-        "session_id": session.id,
-        "session_token": token,
-        "created_at": session.created_at
+        "success": True,
+        "session_id": session.id if session else None,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "age": user.age,
+            "gender": user.gender,
+            "address": user.address
+        }
     }

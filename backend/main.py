@@ -9,7 +9,8 @@ from router import (
     room_router,
     service_router,
     booking_router,
-    rag_router
+    rag_router,
+    auth_router
 )
 from chatbot import router as chatbot_router
 
@@ -36,6 +37,7 @@ app.include_router(service_router.router)
 app.include_router(booking_router.router)
 app.include_router(rag_router.router)
 app.include_router(chatbot_router.router)
+app.include_router(auth_router.router)
 
 # Mount Frontend Static Directory (if exists)
 frontend_dir = Path(__file__).resolve().parent.parent / "pc-lahore-frontend"

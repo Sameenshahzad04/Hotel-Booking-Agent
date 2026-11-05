@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a Stay | Pearl Continental Lahore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="book">
+<main>
+  <div class="page-banner"><div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> › Book a Stay</div>
+    <h1>Book your stay</h1>
+    <p>Five quick steps. Your room is held for 2 hours once you reserve.</p>
+  </div></div>
+
+  <div class="container" style="padding-top:1.75rem">
+    <ol class="stepper" id="stepper" aria-label="Booking progress"></ol>
+    <div class="layout-2">
+      <section class="card" id="panel" aria-live="polite"></section>
+      <aside class="card summary" id="summary" aria-label="Booking summary"></aside>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script src="chat.js"></script>
+<script>
+(() => {
+  const { $, $$, api, esc, money, fmtDate, todayISO, addDays, diffDays, qs, toast, dialog, withLoading, estimate, unitLabel, pay, Auth, uid } = App;
+  App.setTitle('Book a Stay');
+
+  const STEPS = ['Stay', 'Rooms', 'Extras', 'Review', 'Payment'];
+  const KEY = 'pcl_draft';
+
+  /* ----- State ----- */
+  const blank = () => ({ check_in: todayISO(), check_out: addDays(todayISO(), 1), guests: 2, rooms: {}, services: {}, ref: null, idem: null });
+  let draft = (() => { try { return Object.assign(blank(), JSON.parse(sessionStorage.getItem(KEY)) || {}); } catch { return blank(); } })();
+  const save = () => sessionStorage.setItem(KEY, JSON.stringify(draft));
+
+  let step = 1, types = [], services = [], booking = null, countdownTimer = null, confirmed = null, loadingTypes = false;
+
+  // Deep-link from rooms.html
+  if (qs('check_in')) {
+    draft = Object.assign(blank(), { check_in: qs('check_in'), check_out: qs('check_out') || addDays(qs('check_in'), 1), guests: Number(qs('guests')) || 2 });
+    if (qs('room')) draft.rooms = { [qs('room')]: 1 };
+    save();
+    history.replaceState(null, '', 'book.html');
+    if (qs('room')) step = 2;
+  }
+  if (draft.check_in < todayISO()) { draft.check_in = todayISO(); draft.check_out = addDays(todayISO(), 1); }
+
+  const locked = () => !!draft.ref;                 // after the hold is created, steps 1–4 are read-only
+  const totalCapacity = () => Object.entries(draft.rooms).reduce((n, [id, q]) => { const t = types.find((x) => String(x.room_type_id) === id); return n + (t ? t.max_guests * q : 0); }, 0);
+  const totalRooms = () => Object.values(draft.rooms).reduce((a, b) => a + b, 0);
+
+  /* ----- Stepper ----- */
+  function renderStepper() {
+    $('#stepper').innerHTML = STEPS.map((s, i) => {
+      const n = i + 1;
+      const cls = confirmed ? 'done' : n === step ? 'active' : n < step ? 'done' : '';
+      const click = !locked() && n < step ? 'clickable' : '';
+      return `<li class="${cls} ${click}" data-step="${n}" ${n === step ? 'aria-current="step"' : ''}><span class="num">${cls === 'done' ? '✓' : n}</span>${s}</li>`;
+    }).join('');
+    $$('#stepper li.clickable').forEach((li) => li.onclick = () => go(Number(li.dataset.step)));
+  }
+
+  /* ----- Summary sidebar ----- */
+  function renderSummary() {
+    if (booking && step >= 5) {
+      $('#summary').innerHTML = `<h3 class="card-title">Your reservation</h3>
+        <div class="summary-line"><span class="muted">Reference</span><strong>${esc(booking.booking_ref)}</strong></div>
+        <div class="summary-line"><span class="muted">Check-in</span><span>${fmtDate(booking.check_in)}</span></div>
+        <div class="summary-line"><span class="muted">Check-out</span><span>${fmtDate(booking.check_out)}</span></div>
+        <div class="summary-line"><span class="muted">Guests</span><span>${booking.guests}</span></div>
+        ${booking.rooms.map((r) => `<div class="summary-line"><span>${esc(r.room_type)}</span><span>${money(r.price_per_night)}/night</span></div>`).join('')}
+        ${booking.services.map((s) => `<div class="summary-line"><span>${esc(s.name)} × ${s.quantity}</span><span>${money(s.unit_price * s.quantity)}</span></div>`).join('')}
+        <hr class="divider"><div class="summary-total"><span>Total</span><span>${money(booking.total_amount)}</span></div>`;
+      return;
+    }
+    const e = estimate(draft, types, services);
+    $('#summary').innerHTML = `<h3 class="card-title">Booking summary</h3>
+      <div class="summary-line"><span class="muted">Check-in</span><span>${draft.check_in ? fmtDate(draft.check_in) : '—'}</span></div>
+      <div class="summary-line"><span class="muted">Check-out</span><span>${draft.check_out ? fmtDate(draft.check_out) : '—'}</span></div>
+      <div class="summary-line"><span class="muted">Nights · Guests</span><span>${e.nights} · ${draft.guests}</span></div>
+      <hr class="divider">
+      ${e.rooms.length ? e.rooms.map((r) => `<div class="summary-line"><span>${esc(r.name)} × ${r.qty}</span><span>${money(r.sub)}</span></div>`).join('') : '<p class="muted small">No rooms selected yet.</p>'}
+      ${e.extras.map((x) => `<div class="summary-line"><span>${esc(x.name)} × ${x.qty}</span><span>${money(x.sub)}</span></div>`).join('')}
+      <hr class="divider"><div class="summary-total"><span>Estimated total</span><span>${money(e.total)}</span></div>
+      <p class="muted small" style="margin-top:.6rem">Final price is confirmed when you reserve.</p>`;
+  }
+
+  /* ----- Navigation ----- */
+  async function go(n) {
+    step = n;
+    if (n === 2) await loadTypes();
+    if (n === 3 && !services.length) await loadServices();
+    if (n >= 3 && !types.length) await loadTypes();
+    if (n === 4 && !services.length) await loadServices();
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function loadTypes() {
+    loadingTypes = true; render();
+    try {
+      const d = await api(`/rooms/availability?check_in=${draft.check_in}&check_out=${draft.check_out}&guests=${draft.guests}`, { auth: false });
+      types = d.availability;
+      // clamp selection to what is still available
+      for (const id of Object.keys(draft.rooms)) {
+        const t = types.find((x) => String(x.room_type_id) === id);
+        if (!t || t.available_rooms < 1) delete draft.rooms[id];
+        else draft.rooms[id] = Math.min(draft.rooms[id], t.available_rooms);
+      }
+      save();
+    } catch (e) { toast(e.message, 'error'); }
+    loadingTypes = false;
+  }
+  async function loadServices() {
+    try { services = (await api('/services', { auth: false })).services; } catch (e) { toast(e.message, 'error'); }
+  }
+
+  /* ----- Step panels ----- */
+  function panelStay() {
+    return `<h2 class="card-title">When are you staying?</h2>
+      <form id="f-stay" novalidate>
+        <div class="form-grid">
+          <div class="field"><label for="ci">Check-in</label><input class="input" type="date" id="ci" min="${todayISO()}" value="${draft.check_in}" required></div>
+          <div class="field"><label for="co">Check-out</label><input class="input" type="date" id="co" min="${addDays(draft.check_in, 1)}" value="${draft.check_out}" required></div>
+        </div>
+        <div class="field"><label>Guests</label>
+          <div class="qty" id="guest-qty"><button type="button" data-d="-1" aria-label="Fewer guests">−</button><span id="gcount">${draft.guests}</span><button type="button" data-d="1" aria-label="More guests">+</button></div>
+        </div>
+        <div id="stay-err" class="alert alert-error hidden" role="alert"></div>
+        <div class="row between" style="margin-top:1.2rem"><span class="muted small">Check-in from 14:00 · Check-out until 12:00</span><button class="btn btn-primary" type="submit">Choose rooms →</button></div>
+      </form>`;
+  }
+  function wireStay() {
+    const ci = $('#ci'), co = $('#co');
+    ci.onchange = () => { draft.check_in = ci.value; co.min = addDays(ci.value, 1); if (diffDays(ci.value, co.value) < 1) { co.value = addDays(ci.value, 1); } draft.check_out = co.value; save(); renderSummary(); };
+    co.onchange = () => { draft.check_out = co.value; save(); renderSummary(); };
+    $$('#guest-qty button').forEach((b) => b.onclick = () => { draft.guests = Math.min(20, Math.max(1, draft.guests + Number(b.dataset.d))); $('#gcount').textContent = draft.guests; save(); renderSummary(); });
+    $('#f-stay').onsubmit = (e) => {
+      e.preventDefault();
+      const err = $('#stay-err');
+      if (!ci.value || !co.value) { err.textContent = 'Please choose both dates.'; err.classList.remove('hidden'); return; }
+      if (ci.value < todayISO()) { err.textContent = 'Check-in cannot be in the past.'; err.classList.remove('hidden'); return; }
+      if (diffDays(ci.value, co.value) < 1) { err.textContent = 'Check-out must be at least one day after check-in.'; err.classList.remove('hidden'); return; }
+      go(2);
+    };
+  }
+
+  function panelRooms() {
+    if (loadingTypes) return '<h2 class="card-title">Choose your rooms</h2><div class="skeleton" style="height:90px;margin-bottom:.75rem"></div><div class="skeleton" style="height:90px"></div>';
+    const cap = totalCapacity(), rooms = totalRooms();
+    const capOk = rooms > 0 && cap >= draft.guests;
+    const list = types.map((t) => {
+      const q = draft.rooms[t.room_type_id] || 0;
+      const none = t.available_rooms < 1;
+      return `<div class="pick-card ${q ? 'selected' : ''} ${none ? 'disabled' : ''}">
+        <div><strong>${esc(t.name)}</strong><div class="muted small">Sleeps ${t.max_guests} · ${esc(t.bed_type)} · ${none ? 'Sold out' : t.available_rooms + ' available'}</div>
+          <div style="margin-top:.3rem"><strong>${money(t.base_price)}</strong> <span class="muted small">per night</span></div></div>
+        <div class="qty" data-id="${t.room_type_id}"><button type="button" data-d="-1" ${q < 1 ? 'disabled' : ''} aria-label="Remove one ${esc(t.name)}">−</button><span>${q}</span><button type="button" data-d="1" ${q >= t.available_rooms ? 'disabled' : ''} aria-label="Add one ${esc(t.name)}">+</button></div>
+      </div>`;
+    }).join('') || '<div class="alert alert-info">No rooms are available for these dates. Please go back and change your dates.</div>';
+    return `<h2 class="card-title">Choose your rooms</h2>
+      <p class="muted small" style="margin-bottom:1rem">${draft.guests} guest${draft.guests > 1 ? 's' : ''} · ${diffDays(draft.check_in, draft.check_out)} night(s). Select one or more rooms.</p>
+      ${list}
+      <div class="alert ${capOk ? 'alert-success' : rooms ? 'alert-warn' : 'alert-info'}" style="margin-top:1rem">${rooms === 0 ? 'Select at least one room to continue.' : capOk ? `Your selection fits ${cap} guests.` : `Your selection fits ${cap} guest(s) but you have ${draft.guests}. Add another room.`}</div>
+      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-primary" id="next" ${capOk ? '' : 'disabled'}>Choose extras →</button></div>`;
+  }
+  function wireRooms() {
+    $$('.pick-card .qty').forEach((el) => $$('button', el).forEach((b) => b.onclick = () => {
+      const id = el.dataset.id, t = types.find((x) => String(x.room_type_id) === id);
+      const q = Math.min(t.available_rooms, Math.max(0, (draft.rooms[id] || 0) + Number(b.dataset.d)));
+      if (q) draft.rooms[id] = q; else delete draft.rooms[id];
+      save(); render();
+    }));
+    $('#back').onclick = () => go(1); $('#next').onclick = () => go(3);
+  }
+
+  function panelExtras() {
+    const nights = diffDays(draft.check_in, draft.check_out);
+    const list = services.map((s) => {
+      const q = draft.services[s.id] || 0;
+      let hint = '';
+      if (s.pricing_unit === 'per_night') hint = ` · ${money(s.price * nights)} for ${nights} night(s)`;
+      if (s.pricing_unit === 'per_guest') hint = ` · ${money(s.price * draft.guests)} for ${draft.guests} guest(s)`;
+      return `<div class="pick-card ${q ? 'selected' : ''}">
+        <div><strong>${esc(s.name)}</strong><div class="muted small">${esc(s.description || '')}</div>
+          <div style="margin-top:.3rem"><strong>${money(s.price)}</strong> <span class="muted small">${esc(unitLabel(s.pricing_unit))}${hint}</span></div></div>
+        <div class="qty" data-id="${s.id}"><button type="button" data-d="-1" ${q < 1 ? 'disabled' : ''} aria-label="Remove one ${esc(s.name)}">−</button><span>${q}</span><button type="button" data-d="1" ${q >= 10 ? 'disabled' : ''} aria-label="Add one ${esc(s.name)}">+</button></div>
+      </div>`;
+    }).join('') || '<p class="muted">No add-on services available.</p>';
+    return `<h2 class="card-title">Enhance your stay <span class="muted small" style="font-weight:400">(optional)</span></h2>${list}
+      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-primary" id="next">Review booking →</button></div>`;
+  }
+  function wireExtras() {
+    $$('.pick-card .qty').forEach((el) => $$('button', el).forEach((b) => b.onclick = () => {
+      const id = el.dataset.id; const q = Math.min(10, Math.max(0, (draft.services[id] || 0) + Number(b.dataset.d)));
+      if (q) draft.services[id] = q; else delete draft.services[id];
+      save(); render();
+    }));
+    $('#back').onclick = () => go(2); $('#next').onclick = () => go(4);
+  }
+
+  function panelReview() {
+    const e = estimate(draft, types, services);
+    const needLogin = !Auth.loggedIn;
+    return `<h2 class="card-title">Review your reservation</h2>
+      <dl class="kv" style="margin-bottom:1rem">
+        <dt>Check-in</dt><dd>${fmtDate(draft.check_in)} (from 14:00)</dd>
+        <dt>Check-out</dt><dd>${fmtDate(draft.check_out)} (until 12:00)</dd>
+        <dt>Duration</dt><dd>${e.nights} night${e.nights > 1 ? 's' : ''}</dd>
+        <dt>Guests</dt><dd>${draft.guests}</dd>
+        <dt>Rooms</dt><dd>${e.rooms.map((r) => `${esc(r.name)} × ${r.qty}`).join('<br>')}</dd>
+        <dt>Extras</dt><dd>${e.extras.length ? e.extras.map((x) => `${esc(x.name)} × ${x.qty}`).join('<br>') : 'None'}</dd>
+        <dt>Estimated total</dt><dd><strong>${money(e.total)}</strong></dd>
+      </dl>
+      <div class="alert alert-info">Reserving holds your room for <strong>2 hours</strong>. You can add extras, pay, or release the hold afterwards.</div>
+      ${needLogin ? `<div class="alert alert-warn" style="margin-top:1rem"><div><strong>Sign in to continue.</strong> Your selections are saved and will be waiting for you.
+        <div class="row" style="margin-top:.6rem"><a class="btn btn-primary btn-sm" href="login.html?next=book.html">Sign in</a><a class="btn btn-outline btn-sm" href="register.html?next=book.html">Create account</a></div></div></div>` : ''}
+      <label class="checkbox" style="margin-top:1rem"><input type="checkbox" id="agree"><span>I understand the cancellation policy: full refund 7+ days before check-in, 50% between 2 and 7 days, none within 48 hours.</span></label>
+      <div id="rev-err" class="alert alert-error hidden" role="alert" style="margin-top:1rem"></div>
+      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-gold btn-lg" id="reserve" disabled>Reserve &amp; continue to payment</button></div>`;
+  }
+  function wireReview() {
+    const agree = $('#agree'), btn = $('#reserve');
+    const sync = () => btn.disabled = !(agree.checked && Auth.loggedIn);
+    agree.onchange = sync; sync();
+    $('#back').onclick = () => go(3);
+    btn.onclick = async () => {
+      const err = $('#rev-err'); err.classList.add('hidden');
+      try {
+        await withLoading(btn, async () => {
+          const body = {
+            check_in: draft.check_in, check_out: draft.check_out, guests: draft.guests, rooms: draft.rooms,
+            services: Object.entries(draft.services).map(([service_id, quantity]) => ({ service_id: Number(service_id), quantity }))
+          };
+          const r = await api('/bookings', { method: 'POST', body });
+          draft.ref = r.booking_ref; draft.idem = uid('tx'); save();
+          await loadBooking();
+        });
+        step = 5; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+    };
+  }
+
+  async function loadBooking() { booking = await api(`/bookings/${encodeURIComponent(draft.ref)}`); }
+
+  function panelPayment() {
+    if (confirmed) {
+      return `<div class="center" style="padding:1rem 0"><div class="success-mark">✓</div>
+        <h2>Booking confirmed</h2><p class="muted" style="margin:.5rem 0 1.2rem">A confirmation email is on its way to ${esc(Auth.user.email)}.</p>
+        <div class="code-box">${esc(confirmed.confirmation_code)}</div>
+        <p class="muted small" style="margin:.8rem 0 1.4rem">Confirmation code · Reference <strong>${esc(confirmed.booking_ref)}</strong><br>Keep this code safe — you will need it to request a refund.</p>
+        <div class="row" style="justify-content:center"><a class="btn btn-primary" href="booking-detail.html?ref=${encodeURIComponent(confirmed.booking_ref)}">View booking</a><a class="btn btn-outline" href="index.html">Back to home</a></div></div>`;
+    }
+    const b = booking.status;
+    if (!b.can_pay) {
+      return `<div class="alert alert-warn">This reservation can no longer be paid (${esc(b.display_status)}). <a href="book.html" id="restart">Start a new booking</a></div>`;
+    }
+    return `<h2 class="card-title">Complete your payment</h2>
+      <div class="alert alert-warn" style="align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+        <span>Your room is held for</span><span class="countdown" id="cd">${esc(b.countdown)}</span></div>
+      <div class="card" style="background:var(--ivory);box-shadow:none">
+        <div class="summary-line"><span>Booking reference</span><strong>${esc(booking.booking_ref)}</strong></div>
+        <div class="summary-line"><span>Amount due</span><strong style="font-size:1.2rem">${money(booking.total_amount)}</strong></div>
+      </div>
+      <div class="alert alert-info" style="margin-top:1rem">This is a demonstration payment. No card details are collected and no money is charged.</div>
+      <div id="pay-err" class="alert alert-error hidden" role="alert" style="margin-top:1rem"></div>
+      <div class="row between" style="margin-top:1.4rem">
+        <button class="btn btn-danger-outline" id="release">Release hold</button>
+        <div class="row"><a class="btn btn-outline" href="bookings.html">Pay later</a><button class="btn btn-gold btn-lg" id="pay">Pay ${money(booking.total_amount)}</button></div>
+      </div>
+      <p class="small muted" style="margin-top:1rem">Need breakfast or transport? You can <a href="booking-detail.html?ref=${encodeURIComponent(booking.booking_ref)}">add services</a> before paying.</p>`;
+  }
+  function wirePayment() {
+    if (confirmed || !booking.status.can_pay) { const r = $('#restart'); if (r) r.onclick = () => { draft = blank(); save(); }; return; }
+    startCountdown(booking.status.seconds_left);
+    $('#pay').onclick = async () => {
+      const err = $('#pay-err'); err.classList.add('hidden');
+      try {
+        await withLoading($('#pay'), async () => { confirmed = await pay(draft.ref, draft.idem); });
+        sessionStorage.removeItem(KEY); stopCountdown(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+    };
+    $('#release').onclick = async () => {
+      const ok = await dialog({ title: 'Release this hold?', message: 'Your room will be made available to other guests.', confirmText: 'Release hold', danger: true });
+      if (!ok) return;
+      try { await api(`/bookings/${encodeURIComponent(draft.ref)}/cancel`, { method: 'POST' }); toast('Hold released.', 'success'); draft = blank(); save(); location.href = 'bookings.html'; }
+      catch (ex) { toast(ex.message, 'error'); }
+    };
+  }
+  function startCountdown(sec) {
+    stopCountdown(); let left = sec;
+    countdownTimer = setInterval(() => {
+      left--; const el = $('#cd');
+      if (left <= 0) { stopCountdown(); toast('Your hold has expired.', 'error'); loadBooking().then(render); return; }
+      if (el) el.textContent = [Math.floor(left / 3600), Math.floor(left % 3600 / 60), left % 60].map((n) => String(n).padStart(2, '0')).join(':');
+    }, 1000);
+  }
+  function stopCountdown() { clearInterval(countdownTimer); countdownTimer = null; }
+
+  /* ----- Render ----- */
+  function render() {
+    renderStepper();
+    const panel = $('#panel');
+    panel.innerHTML = [panelStay, panelRooms, panelExtras, panelReview, panelPayment][step - 1]();
+    [wireStay, wireRooms, wireExtras, wireReview, wirePayment][step - 1]();
+    renderSummary();
+  }
+
+  /* ----- Boot ----- */
+  (async () => {
+    await App.ready;
+    await loadServices();
+    if (draft.ref && Auth.loggedIn) {                 // resume an unpaid hold after refresh
+      try { await loadBooking(); if (booking.status.can_pay) { step = 5; render(); return; } } catch { /* fall through */ }
+      draft.ref = null; save();
+    }
+    if (step >= 2) await loadTypes();
+    render();
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Account | Pearl Continental Lahore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="account">
+<main>
+  <div class="page-banner"><div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> › My Account</div>
+    <h1>My account</h1>
+    <p>Manage your personal details and security.</p>
+  </div></div>
+
+  <div class="container" style="padding-top:1.75rem">
+    <div class="side-layout">
+      <nav class="card side-nav" id="side-nav" aria-label="Account sections">
+        <button class="active" data-tab="profile">Personal details</button>
+        <button data-tab="security">Password &amp; security</button>
+        <button data-tab="signout">Sign out</button>
+      </nav>
+
+      <div>
+        <section class="card" id="tab-profile">
+          <h2 class="card-title">Personal details</h2>
+          <div id="p-msg" class="alert hidden" role="status" style="margin-bottom:1rem"></div>
+          <form id="profile-form" novalidate>
+            <div class="form-grid">
+              <div class="field"><label for="full_name">Full name *</label><input class="input" id="full_name" required><span class="error-text" data-for="full_name"></span></div>
+              <div class="field"><label for="email">Email</label><input class="input" id="email" disabled><span class="hint">Email cannot be changed.</span></div>
+              <div class="field"><label for="phone">Mobile number</label><input class="input" id="phone" inputmode="numeric" maxlength="11" placeholder="03001234567"><span class="hint">11 digits. Clear the field to remove it.</span><span class="error-text" data-for="phone"></span></div>
+              <div class="field"><label for="age">Age</label><input class="input" type="number" id="age" min="12" max="150"><span class="error-text" data-for="age"></span></div>
+              <div class="field"><label for="gender">Gender</label><select class="input" id="gender"><option value="">Prefer not to say</option><option value="male">Male</option><option value="female">Female</option></select></div>
+            </div>
+            <div class="field"><label for="address">Address</label><textarea class="input" id="address" rows="3"></textarea></div>
+            <div class="row"><button class="btn btn-primary" type="submit" id="p-save">Save changes</button><button class="btn btn-ghost" type="button" id="p-reset">Discard</button></div>
+          </form>
+        </section>
+
+        <section class="card hidden" id="tab-security">
+          <h2 class="card-title">Change password</h2>
+          <div id="s-msg" class="alert hidden" role="status" style="margin-bottom:1rem"></div>
+          <form id="pw-form" novalidate style="max-width:420px">
+            <div class="field"><label for="old_password">Current password</label><input class="input" type="password" id="old_password" autocomplete="current-password" required></div>
+            <div class="field"><label for="new_password">New password</label><input class="input" type="password" id="new_password" autocomplete="new-password" required><span class="hint">8–15 characters.</span><span class="error-text" data-for="new_password"></span></div>
+            <div class="field"><label for="confirm_password">Confirm new password</label><input class="input" type="password" id="confirm_password" autocomplete="new-password" required><span class="error-text" data-for="confirm_password"></span></div>
+            <button class="btn btn-primary" type="submit" id="pw-save">Update password</button>
+          </form>
+        </section>
+
+        <section class="card hidden" id="tab-signout">
+          <h2 class="card-title">Sign out</h2>
+          <p class="muted" style="margin-bottom:1rem">You will be signed out on this device. Your bookings and chat history stay safely on your account.</p>
+          <button class="btn btn-danger-outline" id="signout">Sign out</button>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script src="chat.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, Auth, toast, withLoading, setTitle } = App;
+  setTitle('My Account');
+  if (!(await App.requireAuth())) return;
+
+  /* ----- Tabs (deep-linkable via #hash) ----- */
+  function showTab(name) {
+    ['profile', 'security', 'signout'].forEach((t) => $('#tab-' + t).classList.toggle('hidden', t !== name));
+    $$('#side-nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    history.replaceState(null, '', '#' + name);
+  }
+  $$('#side-nav button').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+  showTab(['profile', 'security', 'signout'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'profile');
+
+  const banner = (id, msg, type) => { const el = $(id); el.className = `alert alert-${type}`; el.textContent = msg; };
+  const setErr = (id, msg) => { const e = $(`[data-for=${id}]`); if (e) e.textContent = msg || ''; $('#' + id).classList.toggle('invalid', !!msg); };
+
+  /* ----- Profile ----- */
+  function fill(u) {
+    $('#full_name').value = u.full_name || ''; $('#email').value = u.email || ''; $('#phone').value = u.phone || '';
+    $('#age').value = u.age ?? ''; $('#gender').value = u.gender || ''; $('#address').value = u.address || '';
+  }
+  fill(Auth.user || {});
+  try { const p = await api('/auth/profile'); Auth.setUser(p); fill(p); App.refreshHeader(); } catch { /* cached values remain */ }
+
+  $('#phone').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+  $('#p-reset').onclick = () => { fill(Auth.user || {}); $('#p-msg').className = 'alert hidden'; };
+
+  $('#profile-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ['full_name', 'phone', 'age'].forEach((i) => setErr(i, ''));
+    const v = (id) => $('#' + id).value.trim();
+    let ok = true;
+    if (v('full_name').length < 2) { setErr('full_name', 'Please enter your full name.'); ok = false; }
+    if (v('phone') && !/^\d{11}$/.test(v('phone'))) { setErr('phone', 'Enter exactly 11 digits.'); ok = false; }
+    if (v('age') && (v('age') < 12 || v('age') > 150)) { setErr('age', 'Age must be between 12 and 150.'); ok = false; }
+    if (!ok) return;
+    // null = "remove this detail" (needs the small backend patch in BACKEND_CHANGES.md)
+    const body = { full_name: v('full_name'), phone: v('phone') || null, age: v('age') ? Number(v('age')) : null, gender: $('#gender').value || null, address: v('address') || null };
+    try {
+      await withLoading($('#p-save'), () => api('/auth/profile', { method: 'PUT', body }));
+      const fresh = await api('/auth/profile'); Auth.setUser(fresh); fill(fresh); App.refreshHeader();
+      banner('#p-msg', 'Your details have been saved.', 'success'); toast('Profile updated.', 'success');
+    } catch (ex) { banner('#p-msg', ex.message, 'error'); }
+  });
+
+  /* ----- Password ----- */
+  $('#pw-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setErr('new_password', ''); setErr('confirm_password', '');
+    const oldp = $('#old_password').value, np = $('#new_password').value, cp = $('#confirm_password').value;
+    if (np.length < 8 || np.length > 15) { setErr('new_password', 'Password must be 8–15 characters.'); return; }
+    if (np === oldp) { setErr('new_password', 'New password must be different from the current one.'); return; }
+    if (np !== cp) { setErr('confirm_password', 'Passwords do not match.'); return; }
+    try {
+      await withLoading($('#pw-save'), () => api('/auth/change-password', { method: 'POST', body: { old_password: oldp, new_password: np } }));
+      $('#pw-form').reset(); banner('#s-msg', 'Your password has been updated.', 'success'); toast('Password updated.', 'success');
+    } catch (ex) { banner('#s-msg', ex.message, 'error'); }
+  });
+
+  $('#signout').onclick = App.logout;
+})();
+</script>
+</body>
+</html>

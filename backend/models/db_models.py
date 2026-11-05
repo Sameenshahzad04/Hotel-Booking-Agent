@@ -1,22 +1,41 @@
+#!db_models.py
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, Date, DateTime, 
-    ForeignKey, Text
+    ForeignKey, Text, CheckConstraint
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from models.connection import Base
 
-class GuestSession(Base):
-    __tablename__ = "guest_session"
+class UserAccount(Base):
+    __tablename__ = "user_account"
 
     id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    phone = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    gender = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    bookings = relationship("Booking", back_populates="user", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    chat_threads = relationship("ChatThread", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    __tablename__ = "user_session"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False, index=True)
     session_token_hash = Column(String, unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    bookings = relationship("Booking", back_populates="guest_session")
-    transactions = relationship("Transaction", back_populates="guest_session")
-    tickets = relationship("Ticket", back_populates="guest_session")
+    user = relationship("UserAccount", back_populates="sessions")
 
 
 class RoomType(Base):
@@ -62,9 +81,7 @@ class Booking(Base):
     id = Column(Integer, primary_key=True, index=True)
     booking_ref = Column(String, unique=True, nullable=False, index=True)
     confirmation_code = Column(String, unique=True, nullable=True, index=True)
-    guest_session_id = Column(Integer, ForeignKey("guest_session.id", ondelete="RESTRICT"), nullable=False)
-    guest_name = Column(String, nullable=False)
-    guest_email = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("user_account.id", ondelete="RESTRICT"), nullable=False, index=True)
     check_in = Column(Date, nullable=False)
     check_out = Column(Date, nullable=False)
     guests = Column(Integer, nullable=False)
@@ -75,7 +92,7 @@ class Booking(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     paid_at = Column(DateTime(timezone=True), nullable=True)
 
-    guest_session = relationship("GuestSession", back_populates="bookings")
+    user = relationship("UserAccount", back_populates="bookings")
     booking_rooms = relationship("BookingRoom", back_populates="booking", cascade="all, delete-orphan")
     booking_services = relationship("BookingService", back_populates="booking", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="booking")
@@ -114,7 +131,7 @@ class Transaction(Base):
     __tablename__ = "transaction"
 
     id = Column(Integer, primary_key=True, index=True)
-    guest_session_id = Column(Integer, ForeignKey("guest_session.id", ondelete="RESTRICT"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user_account.id", ondelete="RESTRICT"), nullable=False, index=True)
     booking_id = Column(Integer, ForeignKey("booking.id", ondelete="RESTRICT"), nullable=False)
     type = Column(String, nullable=False)
     status = Column(String, nullable=False)
@@ -123,7 +140,7 @@ class Transaction(Base):
     idempotency_key = Column(String, unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    guest_session = relationship("GuestSession", back_populates="transactions")
+    user = relationship("UserAccount", back_populates="transactions")
     booking = relationship("Booking", back_populates="transactions")
 
 
@@ -144,34 +161,35 @@ class Notification(Base):
     booking = relationship("Booking", back_populates="notifications")
 
 
-class Ticket(Base):
-    __tablename__ = "ticket"
+class ChatThread(Base):
+    __tablename__ = "chat_thread"
 
     id = Column(Integer, primary_key=True, index=True)
-    guest_session_id = Column(Integer, ForeignKey("guest_session.id", ondelete="RESTRICT"), nullable=False)
-    booking_id = Column(Integer, ForeignKey("booking.id", ondelete="SET NULL"), nullable=True)
-    category = Column(String, default="GENERAL", nullable=False)
-    status = Column(String, default="OPEN", nullable=False)
-    messages = Column(JSONB, default=list, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    user_id = Column(Integer, ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False, index=True)
+    booking_id = Column(Integer, ForeignKey("booking.id"), nullable=True)
+    title = Column(String, nullable=True)
+    status = Column(String, default="ACTIVE", nullable=False)  # <--- Add this line here    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    guest_session = relationship("GuestSession", back_populates="tickets")
-    booking = relationship("Booking")
+    user = relationship("UserAccount", back_populates="chat_threads")
+    messages = relationship("ChatMessage", back_populates="thread", cascade="all, delete-orphan")
 
 
-class BookingOTP(Base):
-    """
-    Temporary One-Time Password for claiming bookings across sessions.
-    Guarantees that a user requesting to link a booking actually owns the email inbox.
-    """
-    __tablename__ = "booking_otp"
+class ChatMessage(Base):
+    __tablename__ = "chat_message"
 
     id = Column(Integer, primary_key=True, index=True)
-    booking_id = Column(Integer, ForeignKey("booking.id", ondelete="CASCADE"), nullable=False)
-    target_email = Column(String, nullable=False)
-    otp_code = Column(String, nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-    is_used = Column(Boolean, default=False, nullable=False)
+    thread_id = Column(Integer, ForeignKey("chat_thread.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String, nullable=False)  # Restricted strictly to 'user' or 'assistant' in your application logic
+    content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    booking = relationship("Booking")
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="check_chat_message_role"),
+    )
+
+    thread = relationship("ChatThread", back_populates="messages")
+
+
+if __name__ == "__main__":
+    pass

@@ -1,3 +1,4 @@
+#!util/security_util.py
 import hashlib
 import secrets
 import random
@@ -5,7 +6,7 @@ import random
 UNAMBIGUOUS_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 def generate_session_token() -> str:
-    """Generates a secure cryptographic raw session token for guest browsers."""
+    """Generates a secure cryptographic raw session token for user browsers."""
     return secrets.token_urlsafe(32)
 
 def hash_session_token(token: str) -> str:

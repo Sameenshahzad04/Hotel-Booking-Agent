@@ -1,8 +1,13 @@
+#!handler/refund_handler.py
 from datetime import datetime, timezone
+from typing import Dict, Any
+import logging
 from sqlalchemy.orm import Session
-from models.db_models import Booking, Transaction, Notification
+from models.db_models import Booking, Transaction, Notification, UserAccount
 
-def cancel_unpaid_booking_handler(db: Session, booking_ref: str, guest_session_id: int) -> dict:
+logger = logging.getLogger("pc_agent.refund")
+
+def cancel_unpaid_booking_handler(db: Session, booking_ref: str, user_id: int) -> Dict[str, Any]:
     """Cancels unpaid pending booking and immediately frees inventory."""
     booking = (
         db.query(Booking)
@@ -13,7 +18,7 @@ def cancel_unpaid_booking_handler(db: Session, booking_ref: str, guest_session_i
     if not booking:
         raise ValueError("Booking reference not found.")
 
-    if booking.guest_session_id != guest_session_id:
+    if booking.user_id != user_id:
         raise PermissionError("Access denied: You do not own this booking.")
 
     if booking.status != "PENDING" or booking.payment_status != "UNPAID":
@@ -31,26 +36,16 @@ def cancel_unpaid_booking_handler(db: Session, booking_ref: str, guest_session_i
         "status": "CANCELLED"
     }
 
-def process_refund_handler(
-    db: Session,
-    booking_ref: str,
-    guest_session_id: int,
-    idempotency_key: str
-) -> dict:
-    """Processes refund based on cancellation window policy."""
+def get_refund_quote_handler(db: Session, booking_ref: str, user_id: int) -> Dict[str, Any]:
+    """Read-only preview handler. Calculates refund percentage and amount without requiring a confirmation code."""
     now = datetime.now(timezone.utc)
     today = now.date()
 
-    booking = (
-        db.query(Booking)
-        .filter_by(booking_ref=booking_ref)
-        .with_for_update()
-        .first()
-    )
+    booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
     if not booking:
         raise ValueError("Booking reference not found.")
 
-    if booking.guest_session_id != guest_session_id:
+    if booking.user_id != user_id:
         raise PermissionError("Access denied: You do not own this booking.")
 
     if booking.status != "CONFIRMED" or booking.payment_status != "PAID":
@@ -73,54 +68,113 @@ def process_refund_handler(
 
     refund_amount = round(booking.total_amount * (percent / 100.0), 2)
 
+    return {
+        "booking_ref": booking.booking_ref,
+        "eligible": percent > 0,
+        "percent": percent,
+        "refund_amount": refund_amount,
+        "reason": reason,
+        "total_amount": booking.total_amount
+    }
+
+def execute_refund_and_cancel_handler(
+    db: Session,
+    booking_ref: str,
+    user_id: int,
+    confirmation_code: str,
+    idempotency_key: str
+) -> Dict[str, Any]:
+    """Execution handler. Validates confirmation code, cancels booking, and processes refund."""
+    booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
+    if not booking:
+        raise ValueError("Booking reference not found.")
+
+    if booking.user_id != user_id:
+        raise PermissionError("Access denied: You do not own this booking.")
+
+    # Strictly validate confirmation code before proceeding with execution
+    if not booking.confirmation_code or booking.confirmation_code != confirmation_code:
+        raise ValueError("Invalid confirmation code provided. Cannot execute refund.")
+
+    # Fetch quote info
+    quote = get_refund_quote_handler(db, booking_ref, user_id)
+    
+    if not quote["eligible"]:
+        raise ValueError(f"Cancellation refused: {quote['reason']}")
+
+    # Lock row for transaction update
+    booking = (
+        db.query(Booking)
+        .filter_by(booking_ref=booking_ref)
+        .with_for_update()
+        .first()
+    )
+
     parent_tx = (
         db.query(Transaction)
         .filter_by(booking_id=booking.id, type="PAYMENT", status="SUCCEEDED")
         .first()
     )
 
-    if percent > 0:
-        refund_tx = Transaction(
-            guest_session_id=guest_session_id,
-            booking_id=booking.id,
-            type="REFUND",
-            status="SUCCEEDED",
-            amount=refund_amount,
-            parent_transaction_id=parent_tx.id if parent_tx else None,
-            idempotency_key=idempotency_key
-        )
-        db.add(refund_tx)
-        booking.payment_status = "REFUNDED"
+    refund_tx = Transaction(
+        user_id=user_id,
+        booking_id=booking.id,
+        type="REFUND",
+        status="SUCCEEDED",
+        amount=quote["refund_amount"],
+        parent_transaction_id=parent_tx.id if parent_tx else None,
+        idempotency_key=idempotency_key
+    )
+    db.add(refund_tx)
 
+    booking.payment_status = "REFUNDED"
     booking.status = "CANCELLED"
     for br in booking.booking_rooms:
         br.blocks_inventory = False
 
+    user_account = db.query(UserAccount).filter_by(id=user_id).first()
+    guest_name = user_account.full_name if user_account else "Valued Guest"
+    guest_email = user_account.email if user_account else ""
+
     notification = Notification(
         booking_id=booking.id,
-        kind="REFUNDED" if percent > 0 else "CANCELLED",
-        to_email=booking.guest_email,
-        subject=f"PC Lahore Booking Update: {booking.booking_ref}",
+        kind="REFUNDED",
+        to_email=guest_email,
+        subject=f"PC Lahore Booking Cancelled & Refunded: {booking.booking_ref}",
         body=(
-            f"Dear {booking.guest_name},\n\n"
-            f"Your reservation {booking.booking_ref} has been cancelled.\n"
-            f"Refund Rate: {percent}%\n"
-            f"Refund Amount: PKR {refund_amount:,.2f}\n"
-            f"Reason: {reason}\n\n"
+            f"Dear {guest_name},\n\n"
+            f"Your reservation {booking.booking_ref} has been successfully cancelled.\n"
+            f"Refund Rate: {quote['percent']}%\n"
+            f"Refund Amount: PKR {quote['refund_amount']:,.2f}\n"
+            f"Reason: {quote['reason']}\n\n"
             f"Pearl Continental Hotel Lahore Guest Relations."
         )
     )
     db.add(notification)
-
     db.commit()
+
+    try:
+        from util.email_service import send_smtp_email
+        send_smtp_email(
+            to_email=guest_email,
+            subject=notification.subject,
+            body_text=notification.body
+        )
+        notification.sent_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception as email_err:
+        notification.last_error = str(email_err)
+        notification.attempts += 1
+        db.commit()
 
     return {
         "success": True,
         "booking_ref": booking.booking_ref,
-        "eligible": percent > 0,
-        "percent": percent,
-        "refund_amount": refund_amount,
-        "reason": reason,
+        "eligible": True,
+        "percent": quote["percent"],
+        "refund_amount": quote["refund_amount"],
+        "reason": quote["reason"],
         "status": booking.status,
         "payment_status": booking.payment_status
     }
+

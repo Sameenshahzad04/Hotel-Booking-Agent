@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create account | Pearl Continental Lahore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="register">
+<main class="auth-wrap">
+  <aside class="auth-aside">
+    <span class="eyebrow" style="color:var(--gold)">Join us</span>
+    <h2>Create your guest account</h2>
+    <p>One account for all your reservations, confirmations and chat history.</p>
+    <ul><li>Manage bookings anytime</li><li>Faster checkout with saved details</li><li>Private, secure concierge chat</li></ul>
+  </aside>
+  <section class="auth-main">
+    <div class="auth-card" style="max-width:520px">
+      <h1>Create account</h1>
+      <p class="muted" style="margin-bottom:1.5rem">Already registered? <a href="login.html" id="to-login">Sign in</a></p>
+      <div id="form-error" class="alert alert-error hidden" role="alert" style="margin-bottom:1rem"></div>
+      <form id="reg-form" novalidate>
+        <div class="field"><label for="full_name">Full name *</label><input class="input" id="full_name" autocomplete="name" required><span class="error-text" data-for="full_name"></span></div>
+        <div class="field"><label for="email">Email address *</label><input class="input" type="email" id="email" autocomplete="email" required><span class="error-text" data-for="email"></span></div>
+        <div class="field"><label for="password">Password *</label>
+          <div class="input-wrap"><input class="input" type="password" id="password" autocomplete="new-password" required><button type="button" class="toggle-pw" id="tpw">Show</button></div>
+          <div class="pw-meter"><span id="pw-bar"></span></div>
+          <span class="hint">8–15 characters. Mix letters, numbers and symbols for a stronger password.</span>
+          <span class="error-text" data-for="password"></span>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label for="phone">Mobile number</label><input class="input" id="phone" inputmode="numeric" maxlength="11" placeholder="03001234567" autocomplete="tel"><span class="hint">11 digits, no spaces or dashes.</span><span class="error-text" data-for="phone"></span></div>
+          <div class="field"><label for="age">Age</label><input class="input" type="number" id="age" min="12" max="150"><span class="error-text" data-for="age"></span></div>
+          <div class="field"><label for="gender">Gender</label><select class="input" id="gender"><option value="">Prefer not to say</option><option value="male">Male</option><option value="female">Female</option></select></div>
+        </div>
+        <div class="field"><label for="address">Address</label><textarea class="input" id="address" rows="2" autocomplete="street-address"></textarea></div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit" id="submit">Create account</button>
+        <p class="small muted center" style="margin-top:1rem">Fields marked * are required. Other details are optional and can be edited later.</p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, $$, api, Auth, withLoading, qs, setTitle } = App;
+  setTitle('Create account');
+  const next = qs('next') || 'index.html';
+  const safeNext = /^[a-z0-9_\-]+\.html(\?.*)?$/i.test(next) ? next : 'index.html';
+  $('#to-login').href = 'login.html?next=' + encodeURIComponent(safeNext);
+
+  $('#tpw').onclick = () => { const p = $('#password'); const s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('#tpw').textContent = s ? 'Hide' : 'Show'; };
+  $('#password').addEventListener('input', (e) => {
+    const v = e.target.value; let score = 0;
+    if (v.length >= 8) score++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++; if (/\d/.test(v)) score++; if (/[^A-Za-z0-9]/.test(v)) score++;
+    const bar = $('#pw-bar'); bar.style.width = (score * 25) + '%'; bar.style.background = ['#B42318', '#B42318', '#B54708', '#067647', '#067647'][score];
+  });
+  $('#phone').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+
+  function setErr(id, msg) {
+    const el = $(`[data-for=${id}]`); if (el) el.textContent = msg || '';
+    const inp = $('#' + id); if (inp) inp.classList.toggle('invalid', !!msg);
+  }
+  function validate() {
+    $$('[data-for]').forEach((e) => setErr(e.dataset.for, ''));
+    let ok = true;
+    const v = (id) => $('#' + id).value.trim();
+    if (v('full_name').length < 2) { setErr('full_name', 'Please enter your full name.'); ok = false; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('email'))) { setErr('email', 'Enter a valid email address.'); ok = false; }
+    const pw = $('#password').value;
+    if (pw.length < 8 || pw.length > 15) { setErr('password', 'Password must be 8–15 characters.'); ok = false; }
+    if (v('phone') && !/^\d{11}$/.test(v('phone'))) { setErr('phone', 'Enter exactly 11 digits.'); ok = false; }
+    if (v('age') && (v('age') < 12 || v('age') > 150)) { setErr('age', 'Age must be between 12 and 150.'); ok = false; }
+    return ok;
+  }
+
+  $('#reg-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#form-error'); err.classList.add('hidden');
+    if (!validate()) return;
+    const body = {
+      email: $('#email').value.trim(), password: $('#password').value, full_name: $('#full_name').value.trim(),
+      phone: $('#phone').value.trim() || null, age: $('#age').value ? Number($('#age').value) : null,
+      gender: $('#gender').value || null, address: $('#address').value.trim() || null
+    };
+    try {
+      await withLoading($('#submit'), async () => {
+        await api('/auth/register', { method: 'POST', body, auth: false });
+        const data = await api('/auth/login', { method: 'POST', body: { email: body.email, password: body.password }, auth: false });
+        Auth.set(data.session_token, data.user);
+      });
+      location.href = safeNext;
+    } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+})();
+</script>
+</body>
+</html>

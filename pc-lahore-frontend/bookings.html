@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Bookings | Pearl Continental Lahore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="bookings">
+<main>
+  <div class="page-banner"><div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> › My Bookings</div>
+    <h1>My bookings</h1>
+    <p>Review, pay, change or cancel your reservations.</p>
+  </div></div>
+  <div class="container" style="padding-top:1.75rem">
+    <div class="row between" style="margin-bottom:1rem">
+      <div class="tabs" id="tabs" style="margin:0;border:0">
+        <button class="tab active" data-f="all">All</button><button class="tab" data-f="upcoming">Upcoming</button><button class="tab" data-f="pending">Awaiting payment</button><button class="tab" data-f="past">Past</button><button class="tab" data-f="cancelled">Cancelled</button>
+      </div>
+      <a class="btn btn-primary" href="book.html">+ New booking</a>
+    </div>
+    <div id="list"><div class="skeleton" style="height:110px;margin-bottom:1rem"></div><div class="skeleton" style="height:110px"></div></div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script src="chat.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, esc, money, fmtDate } = App;
+  App.setTitle('My Bookings');
+  if (!(await App.requireAuth())) return;
+
+  let all = [], filter = 'all';
+  const bucket = (b) => {
+    const s = b.status.display_status;
+    if (s === 'Pending') return 'pending';
+    if (['Cancelled', 'Refunded', 'Expired'].includes(s)) return 'cancelled';
+    if (['Completed', 'Active Stay'].includes(s)) return 'past';
+    return 'upcoming';
+  };
+  const matches = (b) => filter === 'all' || bucket(b) === filter;
+
+  function render() {
+    const items = all.filter(matches);
+    if (!items.length) {
+      $('#list').innerHTML = `<div class="card empty"><div class="big">🗓️</div><h3>${all.length ? 'No bookings in this view' : 'No bookings yet'}</h3>
+        <p class="muted" style="margin:.4rem 0 1rem">${all.length ? 'Try another tab.' : 'When you book a stay it will appear here.'}</p>
+        ${all.length ? '' : '<a class="btn btn-primary" href="book.html">Book a stay</a>'}</div>`;
+      return;
+    }
+    $('#list').innerHTML = items.map((b) => `
+      <article class="card booking-card">
+        <div>
+          <div class="row" style="margin-bottom:.4rem"><strong style="font-size:1.05rem">${esc(b.rooms.join(', ') || 'Room')}</strong><span class="badge ${esc(b.status.badge_class)}">${esc(b.status.display_status)}</span></div>
+          <div class="muted small">${fmtDate(b.check_in)} → ${fmtDate(b.check_out)} · ${b.nights} night${b.nights > 1 ? 's' : ''} · ${b.guests} guest${b.guests > 1 ? 's' : ''}</div>
+          <div class="muted small" style="margin-top:.3rem">Ref <strong>${esc(b.booking_ref)}</strong>${b.confirmation_code ? ` · Code <strong>${esc(b.confirmation_code)}</strong>` : ''}${b.status.can_pay ? ` · <span style="color:var(--warn)">Hold ends in ${esc(b.status.countdown)}</span>` : ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="price" style="font-size:1.3rem">${money(b.total_amount)}</div>
+          <div class="row" style="justify-content:flex-end;margin-top:.6rem">
+            ${b.status.can_pay ? `<a class="btn btn-gold btn-sm" href="booking-detail.html?ref=${encodeURIComponent(b.booking_ref)}">Pay now</a>` : ''}
+            <a class="btn btn-outline btn-sm" href="booking-detail.html?ref=${encodeURIComponent(b.booking_ref)}">View details</a>
+          </div>
+        </div>
+      </article>`).join('');
+  }
+
+  $$('#tabs .tab').forEach((t) => t.onclick = () => { $$('#tabs .tab').forEach((x) => x.classList.remove('active')); t.classList.add('active'); filter = t.dataset.f; render(); });
+
+  try { all = (await api('/bookings')).bookings; render(); }
+  catch (e) { $('#list').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

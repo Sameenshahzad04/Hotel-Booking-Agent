@@ -15,7 +15,7 @@ graph TD;
 	support_agent(support_agent)
 	polite_decline(polite_decline)
 	verifier(verifier)
-	log_to_ticket(log_to_ticket)
+	log_to_chat_thread(log_to_chat_thread)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> triage;
 	booking_agent -. &nbsp;tools&nbsp; .-> booking_tools;
@@ -37,12 +37,12 @@ graph TD;
 	triage -.-> verifier;
 	verifier -.-> booking_agent;
 	verifier -.-> guest_services_agent;
-	verifier -.-> log_to_ticket;
+	verifier -.-> log_to_chat_thread;
 	verifier -.-> payment_refund_agent;
 	verifier -.-> polite_decline;
 	verifier -.-> support_agent;
 	verifier -.-> triage;
-	log_to_ticket --> __end__;
+	log_to_chat_thread --> __end__;
 	verifier -.-> verifier;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0

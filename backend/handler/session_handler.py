@@ -1,21 +1,31 @@
+#!handler/session_handler.py
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Tuple
 from sqlalchemy.orm import Session
-from models.db_models import GuestSession
-from util.security_util import generate_session_token, hash_session_token
+from models.db_models import UserAccount, UserSession
 
-def get_or_create_guest_session(db: Session, raw_token: str | None = None) -> tuple[GuestSession, str]:
-    """
-    Validates an existing guest session token or provisions a new anonymous session.
-    """
-    if raw_token:
-        token_hash = hash_session_token(raw_token)
-        session = db.query(GuestSession).filter_by(session_token_hash=token_hash).first()
-        if session:
-            return session, raw_token
+SESSION_EXPIRY_DAYS = 7
 
-    new_raw_token = generate_session_token()
-    token_hash = hash_session_token(new_raw_token)
-    new_session = GuestSession(session_token_hash=token_hash)
-    db.add(new_session)
-    db.commit()
-    db.refresh(new_session)
-    return new_session, new_raw_token
+def verify_and_clean_user_session(db: Session, session_token: Optional[str]) -> Optional[UserAccount]:
+    """
+    Validates user session token, checks 7-day expiration inactivity,
+    and returns the UserAccount if valid. Purges token if expired.
+    """
+    if not session_token:
+        return None
+    
+    session = db.query(UserSession).filter_by(session_token_hash=session_token).first()
+    if not session:
+        return None
+    
+    now = datetime.now(timezone.utc)
+    created_at = session.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+        
+    if now - created_at > timedelta(days=SESSION_EXPIRY_DAYS):
+        db.delete(session)
+        db.commit()
+        return None
+    
+    return db.query(UserAccount).filter_by(id=session.user_id).first()

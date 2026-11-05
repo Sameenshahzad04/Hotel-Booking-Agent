@@ -1,3 +1,4 @@
+#!util/status_util.py
 from datetime import datetime, timezone
 
 def compute_display_status(booking, now: datetime | None = None) -> dict:

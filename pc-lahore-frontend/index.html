@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pearl Continental Lahore</title>
+  <meta name="description" content="Book rooms and suites at Pearl Continental Hotel Lahore.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="home">
+<main>
+  <section class="hero">
+    <div class="container">
+      <div class="stars">★ ★ ★ ★ ★</div>
+      <h1>Timeless hospitality in the heart of <em>Lahore</em></h1>
+      <p class="lead">Elegant rooms, attentive service and a concierge available around the clock. Reserve your stay in a few simple steps.</p>
+      <div class="row" style="margin-top:1.8rem">
+        <a class="btn btn-gold btn-lg" href="book.html">Book your stay</a>
+        <a class="btn btn-lg" style="color:#fff;border-color:rgba(255,255,255,.35)" href="rooms.html">Explore rooms</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="search-bar"><div class="container">
+    <form class="search-card" id="quick-search">
+      <div class="field"><label for="ci">Check-in</label><input class="input" type="date" id="ci" required></div>
+      <div class="field"><label for="co">Check-out</label><input class="input" type="date" id="co" required></div>
+      <div class="field"><label for="gu">Guests</label><input class="input" type="number" id="gu" min="1" max="20" value="2" required></div>
+      <button class="btn btn-primary btn-lg" type="submit">Check availability</button>
+    </form>
+  </div></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head"><span class="eyebrow">Accommodation</span><h2>Rooms &amp; suites</h2><p>Live prices for tonight. Choose your dates above to see what is available on your stay.</p></div>
+      <div class="grid-3" id="rooms-teaser">
+        <div class="skeleton" style="height:220px"></div><div class="skeleton" style="height:220px"></div><div class="skeleton" style="height:220px"></div>
+      </div>
+      <div class="center" style="margin-top:1.5rem"><a class="btn btn-outline" href="rooms.html">View all rooms</a></div>
+    </div>
+  </section>
+
+  <section class="section" style="background:#fff;border-block:1px solid var(--border)">
+    <div class="container">
+      <div class="section-head"><span class="eyebrow">Enhance your stay</span><h2>Add-on services</h2><p>Add breakfast, transport and more to any reservation before you pay.</p></div>
+      <div class="grid-4" id="services-teaser"><div class="skeleton" style="height:130px"></div><div class="skeleton" style="height:130px"></div><div class="skeleton" style="height:130px"></div><div class="skeleton" style="height:130px"></div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head"><span class="eyebrow">Good to know</span><h2>Stay information</h2></div>
+      <div class="grid-4">
+        <div class="card feature"><div class="icon">🕑</div><h3>Check-in &amp; out</h3><p>Check-in from 14:00. Check-out until 12:00.</p></div>
+        <div class="card feature"><div class="icon">⏳</div><h3>2-hour hold</h3><p>We hold your room for 2 hours while you complete payment.</p></div>
+        <div class="card feature"><div class="icon">↩️</div><h3>Fair cancellation</h3><p>Full refund 7+ days before arrival, 50% from 2–7 days, none within 48 hours.</p></div>
+        <div class="card feature"><div class="icon">💬</div><h3>24/7 concierge</h3><p>Ask our chat concierge to check availability or manage bookings.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script src="chat.js"></script>
+<script>
+(async () => {
+  const { $, api, esc, money, todayISO, addDays, diffDays, unitLabel, setTitle } = App;
+  setTitle('');
+
+  const ci = $('#ci'), co = $('#co');
+  ci.min = todayISO(); ci.value = todayISO(); co.min = addDays(todayISO(), 1); co.value = addDays(todayISO(), 1);
+  ci.addEventListener('change', () => {
+    co.min = addDays(ci.value, 1);
+    if (!co.value || diffDays(ci.value, co.value) < 1) co.value = addDays(ci.value, 1);
+  });
+  $('#quick-search').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (diffDays(ci.value, co.value) < 1) { App.toast('Check-out must be after check-in.', 'error'); return; }
+    location.href = `rooms.html?check_in=${ci.value}&check_out=${co.value}&guests=${$('#gu').value}`;
+  });
+
+  try {
+    const d = await api(`/rooms/availability?check_in=${todayISO()}&check_out=${addDays(todayISO(), 1)}&guests=1`, { auth: false });
+    $('#rooms-teaser').innerHTML = d.availability.slice(0, 3).map((r) => `
+      <article class="card" style="padding:0;overflow:hidden">
+        <div class="room-media" style="min-height:130px;font-size:2.2rem">${esc(r.name[0])}<small>${esc(r.bed_type)}</small></div>
+        <div style="padding:1.2rem">
+          <h3>${esc(r.name)}</h3>
+          <p class="muted small" style="margin:.3rem 0 .8rem">Sleeps up to ${r.max_guests} · ${esc(r.bed_type)}</p>
+          <div class="row between"><div class="price">${money(r.base_price)}<small>per night</small></div>
+          <a class="btn btn-outline btn-sm" href="rooms.html">View</a></div>
+        </div>
+      </article>`).join('') || '<p class="muted">Room information is not available right now.</p>';
+  } catch { $('#rooms-teaser').innerHTML = '<div class="alert alert-error" style="grid-column:1/-1">We could not load rooms right now. Please try again shortly.</div>'; }
+
+  try {
+    const d = await api('/services', { auth: false });
+    const icons = ['🍳', '🚗', '🧖', '🧺', '🛎️', '🍽️'];
+    $('#services-teaser').innerHTML = d.services.slice(0, 4).map((s, i) => `
+      <div class="card feature"><div class="icon">${icons[i % icons.length]}</div><h3 style="font-size:1.05rem">${esc(s.name)}</h3>
+      <p>${esc(s.description || '')}</p><p><strong>${money(s.price)}</strong> <span class="muted">${esc(unitLabel(s.pricing_unit))}</span></p></div>`).join('') || '<p class="muted">No add-on services listed.</p>';
+  } catch { $('#services-teaser').innerHTML = ''; }
+})();
+</script>
+</body>
+</html>

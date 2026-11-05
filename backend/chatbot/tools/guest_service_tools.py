@@ -1,3 +1,4 @@
+#!chatbot/tools/guest_service_tools.py
 """
 Guest Service Tools for Pearl Continental (PC) Hotel Concierge Agent.
 
@@ -13,28 +14,23 @@ import logging
 from pathlib import Path
 from langchain_core.tools import tool
 
-# Ensure backend root directory is in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from handler.booking_handler import (
     create_booking_hold_handler,
-    cancel_unpaid_booking_handler
+    cancel_unpaid_booking_handler,
+    get_booking_services_handler
 )
 from handler.availability_handler import query_live_availability
+from handler.refund_handler import get_refund_quote_handler
 from models.connection import get_db
-from models.db_models import Booking
+from models.db_models import Booking, Service, BookingService, UserAccount
 from util.status_util import compute_display_status
 
-# ---------------------------------------------------------------------------
-# DIAGNOSTIC LOGGING (instrumentation for the "cannot handle it" investigation)
-# Records every tool-level failure / fallback so we can see which paths return
-# raw internal error text to the guest instead of a graceful Front Desk message.
-# ---------------------------------------------------------------------------
 logger = logging.getLogger("pc_agent.tools")
 if not logger.handlers:
-    # ASCII-only prefix: the Windows console (cp1252) cannot encode emoji.
     _diag_handler = logging.StreamHandler(sys.stdout)
     _diag_handler.setFormatter(logging.Formatter("[DIAG] %(message)s"))
     logger.addHandler(_diag_handler)
@@ -59,15 +55,7 @@ def _get_db_context():
 @tool
 def search_hotel_policies_tool(query: str) -> str:
     """
-    Search official hotel documentation, policies, amenities, timings, dining, and FAQs.
-    Call this tool when the guest asks:
-    - Check-in / check-out times
-    - Breakfast, restaurant, or dining hours
-    - Pet policy, smoking policy, dress code
-    - Gym, pool, spa location and facilities
-    - Cancellation rules, fees, and refund policy terms
-
-    If no policy matches, instructs the guest to contact the Front Desk directly.
+    Search PC Lahore policies, SOPs, and knowledge base.
     """
     from rag.vector_store import get_retriever
 
@@ -104,30 +92,30 @@ def search_hotel_policies_tool(query: str) -> str:
 @tool
 def search_room_availability_tool(check_in: str, check_out: str, guests: int = 1) -> str:
     """
-    Search live room availability for specific dates.
+    Returns live available rooms per room type for requested dates.
     Args:
-        check_in: Check-in date in YYYY-MM-DD format (e.g. '2026-10-20')
-        check_out: Check-out date in YYYY-MM-DD format (e.g. '2026-10-22')
+        check_in: Check-in date in YYYY-MM-DD format (e.g. '2026-11-05')
+        check_out: Check-out date in YYYY-MM-DD format (e.g. '2026-11-07')
         guests: Number of guests (default 1)
     """
     try:
         d_in = date.fromisoformat(check_in)
         d_out = date.fromisoformat(check_out)
     except ValueError:
-        logger.warning("TOOL search_room_availability -> RAW ERROR returned to guest (bad date format)")
         return "Error: Dates must be in YYYY-MM-DD format."
 
     if d_out <= d_in:
-        logger.warning("TOOL search_room_availability -> RAW ERROR returned to guest (bad date range)")
         return "Error: Check-out date must be strictly after check-in date."
 
     with _get_db_context() as db:
         availability = query_live_availability(db, check_in=d_in, check_out=d_out, guests=guests)
         if not availability:
-            logger.info("TOOL search_room_availability -> no inventory for %s..%s", check_in, check_out)
             return f"No rooms available between {check_in} and {check_out} for {guests} guest(s)."
 
-        results = [f"Available options from {check_in} to {check_out}:"]
+        results = [
+            f"Available options from {check_in} to {check_out}:",
+            "*(Tip: We also offer fantastic add-on services like Breakfast Buffets, Airport Transfers, and Spa access that can be added to your booking either now or later while your hold is pending!)*"
+        ]
         for room in availability:
             name = room.get("name") or room.get("room_type", "Standard Room")
             bed_type = room.get("bed_type", "Standard Bed")
@@ -145,44 +133,143 @@ def search_room_availability_tool(check_in: str, check_out: str, guests: int = 1
 
 
 @tool
+def search_services_tool() -> str:
+    """
+    Lists all available hotel add-on services (breakfast, transport, etc.).
+    """
+    with _get_db_context() as db:
+        services = db.query(Service).all()
+        if not services:
+            return "No additional services currently available."
+
+        output = ["Available Add-On Services:"]
+        for s in services:
+            output.append(
+                f"- Service ID: {s.id} | Name: {s.name} | Price: PKR {s.price:,.2f} "
+                f"({s.pricing_unit.replace('_', ' ')}) | Description: {s.description or 'N/A'}"
+            )
+        return "\n".join(output)
+
+
+@tool
+def get_booking_services_tool(booking_ref: str, user_id: int = 0) -> str:
+    """
+    Retrieve all add-on services attached to a specific booking reference for the authenticated user.
+    Args:
+        booking_ref: The booking reference code (e.g. 'HB-...')
+        user_id: Authenticated user ID (automatically assigned)
+    """
+    if not user_id or user_id == 0:
+        return "Authentication required. Please log in to view booking services."
+
+    with _get_db_context() as db:
+        # Verify user account exists and owns the booking
+        booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
+        if not booking:
+            return f"Booking reference {booking_ref} not found."
+        if booking.user_id != user_id:
+            return "Access denied: This booking does not belong to your account."
+
+        try:
+            services = get_booking_services_handler(db, booking_ref=booking_ref, user_id=user_id)
+            if not services:
+                return f"No add-on services are currently attached to booking {booking_ref}."
+
+            output = [f"Add-on services for booking {booking_ref}:"]
+            for s in services:
+                output.append(
+                    f"- {s['name']} (Qty: {s['quantity']}) | Unit Price: PKR {s['unit_price']:,.2f} | "
+                    f"Subtotal: PKR {s['subtotal']:,.2f}"
+                )
+            return "\n".join(output)
+        except Exception as e:
+            return f"Error retrieving services: {str(e)}"
+
+
+@tool
+def add_service_to_hold_tool(booking_ref: str, service_id: int, quantity: int = 1, user_id: int = 0) -> str:
+    """
+    Allows adding or updating services on an existing booking as long as the booking belongs to the user and is still unpaid (PENDING/UNPAID).
+    Args:
+        booking_ref: The booking reference (e.g., 'HB-...')
+        service_id: ID of the add-on service
+        quantity: Quantity of the service
+        user_id: Authenticated user ID (automatically assigned)
+    """
+    if not user_id or user_id == 0:
+        return "Authentication required to modify booking services."
+
+    with _get_db_context() as db:
+        booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
+        if not booking:
+            return f"Booking reference {booking_ref} not found."
+        if booking.user_id != user_id:
+            return "Access denied: You are not authorized to modify this booking."
+
+        if booking.status != "PENDING" or booking.payment_status != "UNPAID":
+            return f"Cannot add services: Booking {booking_ref} is no longer pending/unpaid."
+
+        service = db.query(Service).filter_by(id=service_id).first()
+        if not service:
+            return f"Service ID {service_id} not found."
+
+        booking_service = BookingService(
+            booking_id=booking.id,
+            service_id=service.id,
+            quantity=quantity,
+            unit_price=service.price
+        )
+        db.add(booking_service)
+        
+        subtotal = service.price * quantity
+        if service.pricing_unit == "per_night":
+            nights = (booking.check_out - booking.check_in).days
+            subtotal *= nights
+        elif service.pricing_unit == "per_guest":
+            subtotal *= booking.guests
+
+        booking.total_amount = round(booking.total_amount + subtotal, 2)
+        db.commit()
+
+        return f"Successfully added {quantity}x {service.name} to booking {booking_ref}. New Total: PKR {booking.total_amount:,.2f}"
+
+
+@tool
 def create_booking_hold_tool(
     room_type_id: int,
     check_in: str,
     check_out: str,
     guests: int,
-    guest_name: str,
-    guest_email: str,
+    special_requests: Optional[str] = None,
     quantity: int = 1,
-    session_id: int = 1
+    user_id: int = 0
 ) -> str:
     """
-    Creates an unpaid 2-hour booking hold for room(s).
-    ONLY invoke this tool AFTER the guest has explicitly provided their real full name, email, and preferred room type.
-    NEVER invoke with dummy or placeholder names like '[Guest Name]' or '[Guest Email]'.
+    Creates a 2-hour unpaid booking hold for the authenticated user.
     Args:
         room_type_id: Numeric ID of the room type chosen by the guest
         check_in: Check-in date in YYYY-MM-DD format
         check_out: Check-out date in YYYY-MM-DD format
         guests: Total number of guests
-        guest_name: Real full name provided by the guest
-        guest_email: Real email address provided by the guest
-        quantity: Number of rooms of this type to book (default 1). For groups, book enough rooms so total capacity >= guests.
-        session_id: Internal session ID (automatically assigned, do not ask the user)
+        special_requests: Optional notes/requests from the guest
+        quantity: Number of rooms of this type to book (default 1)
+        user_id: Authenticated user ID (automatically assigned)
     """
+    if not user_id or user_id == 0:
+        return "Error: Authentication required to create a booking hold."
+
     try:
         d_in = date.fromisoformat(check_in)
         d_out = date.fromisoformat(check_out)
     except ValueError:
-        logger.warning("TOOL create_booking_hold -> RAW ERROR returned to guest (bad date format)")
         return "Error: Dates must be in YYYY-MM-DD format."
 
     with _get_db_context() as db:
         try:
             booking = create_booking_hold_handler(
                 db=db,
-                guest_session_id=session_id,
-                guest_name=guest_name,
-                guest_email=guest_email,
+                user_id=user_id,
+                special_requests=special_requests,
                 check_in=d_in,
                 check_out=d_out,
                 guests=guests,
@@ -190,309 +277,155 @@ def create_booking_hold_tool(
                 selected_services=[]
             )
             return (
-                f"Booking hold successfully created and saved in database!\n"
+                f"Booking hold successfully created and tied to your account!\n"
                 f"Booking Reference: {booking.booking_ref}\n"
-                f"Guest: {booking.guest_name} ({booking.guest_email})\n"
                 f"Total Amount: PKR {booking.total_amount:,.2f}\n"
                 f"Status: PENDING (UNPAID)\n"
                 f"Hold expires at: {booking.hold_expires_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
-                f"To confirm reservation and receive your Confirmation Code, complete payment here: "
-                f"http://localhost:3000/checkout/{booking.booking_ref}"
+                f"You can add extra add-on services anytime while this hold is active.\n"
+                f"To complete payment, please use endpoint: POST /bookings/{booking.booking_ref}/pay (or contact Front Desk at +92-42-111-505-505)."
             )
         except Exception as e:
-            logger.exception("TOOL create_booking_hold -> FAILED (raw exception text goes to the guest)")
+            logger.exception("TOOL create_booking_hold -> FAILED")
             return f"Failed to create booking hold: {str(e)}"
 
-# Inside list_guest_bookings_tool implementation:
-def mask_code(code: str) -> str:
+
+def mask_confirmation_code(code: Optional[str]) -> str:
+    """Masks confirmation codes while leaving references fully visible."""
+    if not code:
+        return "Not Generated Yet"
     if len(code) <= 4:
         return "****"
-    return code[:2] + "****" + code[-2:]  # e.g., HB-H86LFM -> HB****FM
+    return code[:2] + "****" + code[-2:]
 
 
 @tool
-def list_guest_bookings_tool(session_id: int = 1) -> str:
+def list_guest_bookings_tool(user_id: int = 0) -> str:
     """
-    List all bookings made by the current guest in this session.
-    Automatically retrieves bookings using the active guest session.
+    Lists history of bookings for the authenticated user.
     Args:
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
+        user_id: Authenticated user ID (automatically assigned)
     """
+    if not user_id or user_id == 0:
+        return "Please log in to view your bookings."
+
     with _get_db_context() as db:
         bookings = (
             db.query(Booking)
-            .filter_by(guest_session_id=session_id)
+            .filter_by(user_id=user_id)
             .order_by(Booking.created_at.desc())
             .all()
         )
         if not bookings:
-            logger.info("TOOL list_guest_bookings -> session %s has no bookings", session_id)
-            return "You currently have no bookings in this session."
+            return "You currently have no bookings on your account."
 
         output = [f"Found {len(bookings)} booking(s):"]
         for b in bookings:
             status_info = compute_display_status(b)
-            code_str = f" | Confirmation: {b.confirmation_code}" if b.confirmation_code else ""
+            masked_code = mask_confirmation_code(b.confirmation_code)
             output.append(
-                f"- Ref: {b.booking_ref}{code_str} | Status: {status_info} "
-                f"| Dates: {b.check_in} to {b.check_out} | Total: PKR {b.total_amount:.2f}"
-            )
-        output = [f"Found {len(bookings)} booking(s):"]
-        for b in bookings:
-            status_info = compute_display_status(b)
-            masked_ref = mask_code(b.booking_ref)
-            code_str = f" | Confirmation: {b.confirmation_code}" if b.confirmation_code else ""
-            output.append(
-                f"- Ref: {masked_ref}{code_str} | Status: {status_info} "
-                f"| Dates: {b.check_in} to {b.check_out} | Total: PKR {b.total_amount:.2f}"
+                f"- Reference: {b.booking_ref} | Confirmation Code: {masked_code} | "
+                f"Status: {status_info.get('display_status', b.status)} | "
+                f"Dates: {b.check_in} to {b.check_out} | Total: PKR {b.total_amount:,.2f}"
             )
         return "\n".join(output)
 
 
 @tool
-def cancel_booking_tool(booking_ref: str, session_id: int = 1) -> str:
+def cancel_booking_tool(booking_ref: str, user_id: int = 0) -> str:
     """
-    Cancel an unpaid, unexpired booking hold and release the room.
-    ONLY call this tool AFTER the guest has provided their real Booking Reference (e.g. 'HB-...').
-    NEVER call with dummy placeholders like '[Booking Reference]' or '[HB-...]'.
+    Cancels unpaid pending booking.
     Args:
-        booking_ref: The real booking reference provided by the guest (e.g. 'HB-...')
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
+        booking_ref: The booking reference (e.g. 'HB-...')
+        user_id: Authenticated user ID (automatically assigned)
     """
+    if not user_id or user_id == 0:
+        return "Authentication required to cancel a booking."
+
     with _get_db_context() as db:
+        booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
+        if not booking:
+            return f"Booking reference {booking_ref} not found."
+        if booking.user_id != user_id:
+            return "Access denied: You do not own this booking."
+
         try:
-            res = cancel_unpaid_booking_handler(
+            cancel_unpaid_booking_handler(
                 db=db,
                 booking_ref=booking_ref,
-                guest_session_id=session_id
+                user_id=user_id
             )
             return f"Booking {booking_ref} cancelled successfully. Rooms released."
         except Exception as e:
-            logger.exception("TOOL cancel_booking -> FAILED (raw exception text goes to the guest)")
             return f"Cancellation failed: {str(e)}"
 
 
 @tool
-def request_claim_otp_tool(identifier: str, email: str) -> str:
+def get_payment_link_info_tool(booking_ref: str, user_id: int = 0) -> str:
     """
-    Step 1 of Cross-Session Booking Re-linking (Bank-Grade Security):
-    Sends a 6-digit One-Time Verification Code (OTP) to the guest's private email address.
-    Call this when a guest in a new session wants to check, view, or claim their booking using
-    their Booking Reference (BK-...) and Email.
-    Args:
-        identifier: Booking Reference (e.g. 'BK-509965') or Confirmation Code
-        email: The exact guest email used during booking
+    Provides payment endpoint information and instructions for an unpaid booking hold.
     """
-    clean_id = identifier.strip()
-    clean_email = email.strip().lower()
+    if not user_id or user_id == 0:
+        return "Authentication required."
 
     with _get_db_context() as db:
-        booking = (
-            db.query(Booking)
-            .filter((Booking.booking_ref == clean_id) | (Booking.confirmation_code == clean_id))
-            .first()
-        )
-        if not booking or booking.guest_email.lower().strip() != clean_email:
-            return "Security Check Failed: No reservation found matching that reference and email combination."
-
-        import secrets
-        from datetime import datetime, timedelta, timezone
-        from models.db_models import BookingOTP
-        from util.email_service import send_smtp_email
-        from config import config
-
-        otp_code = f"{secrets.randbelow(900000) + 100000}"
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=config.OTP_EXPIRY_MINUTES)
-
-        db.query(BookingOTP).filter_by(booking_id=booking.id, is_used=False).update({"is_used": True})
-        otp_record = BookingOTP(
-            booking_id=booking.id,
-            target_email=clean_email,
-            otp_code=otp_code,
-            expires_at=expires_at,
-            is_used=False
-        )
-        db.add(otp_record)
-        db.commit()
-
-        email_body = (
-            f"Dear {booking.guest_name},\n\n"
-            f"You requested to view/link your booking ({booking.booking_ref}) in our concierge chat.\n\n"
-            f"Your 6-Digit One-Time Verification Code is: {otp_code}\n\n"
-            f"This code will expire in {config.OTP_EXPIRY_MINUTES} minutes.\n\n"
-            f"Pearl Continental Hotel Lahore Concierge Team"
-        )
-        send_smtp_email(
-            to_email=clean_email,
-            subject=f"PC Lahore Verification Code: {otp_code}",
-            body_text=email_body
-        )
-
-        parts = clean_email.split("@")
-        masked = parts[0][0] + "***@" + parts[1] if len(parts) == 2 else clean_email
-        return (
-            f"Verification code sent! To verify your ownership of booking {booking.booking_ref}, "
-            f"we just emailed a 6-digit code to {masked}. "
-            f"Please reply with the 6-digit code to complete verification."
-        )
-
-
-@tool
-def verify_claim_otp_tool(identifier: str, email: str, otp_code: str, session_id: int = 1) -> str:
-    """
-    Step 2 of Cross-Session Booking Re-linking:
-    Verifies the 6-digit code from the guest's email and securely links the booking to this session.
-    Args:
-        identifier: Booking Reference (e.g. 'BK-509965') or Confirmation Code
-        email: The guest's email address
-        otp_code: The 6-digit numeric OTP code sent to the guest's email
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
-    """
-    clean_id = identifier.strip()
-    clean_email = email.strip().lower()
-    clean_otp = otp_code.strip()
-
-    with _get_db_context() as db:
-        booking = (
-            db.query(Booking)
-            .filter((Booking.booking_ref == clean_id) | (Booking.confirmation_code == clean_id))
-            .first()
-        )
-        if not booking or booking.guest_email.lower().strip() != clean_email:
-            return "Security Verification Failed: Invalid booking reference or email."
-
-        from datetime import datetime, timezone
-        from models.db_models import BookingOTP
-
-        now = datetime.now(timezone.utc)
-        otp_record = (
-            db.query(BookingOTP)
-            .filter(
-                BookingOTP.booking_id == booking.id,
-                BookingOTP.target_email == clean_email,
-                BookingOTP.otp_code == clean_otp,
-                BookingOTP.is_used == False,
-                BookingOTP.expires_at >= now
-            )
-            .first()
-        )
-        if not otp_record:
-            return "Invalid or expired verification code. Please request a new code."
-
-        otp_record.is_used = True
-        booking.guest_session_id = session_id
-        db.commit()
-
-        status_info = compute_display_status(booking)
-        code_str = f" | Confirmation Code: {booking.confirmation_code}" if booking.confirmation_code else " (Unpaid Hold - Confirmation code issued upon payment)"
-        return (
-            f"Success! Booking {booking.booking_ref} has been verified and securely linked to your session.\n"
-            f"- Status: {status_info}{code_str}\n"
-            f"- Guest Name: {booking.guest_name}\n"
-            f"- Dates: {booking.check_in} to {booking.check_out}\n"
-            f"- Total: PKR {booking.total_amount:,.2f}"
-        )
-
-
-@tool
-def claim_booking_tool(identifier: str, email: str, session_id: int = 1) -> str:
-    """
-    Re-link an existing booking directly if OTP is not required.
-    Guest must provide BOTH:
-    1. Their Booking Reference (e.g., 'BK-...') OR Confirmation Code (e.g., 'PC-CONF-...')
-    2. The exact Email address used during the reservation.
-
-    Args:
-        identifier: Booking reference (BK-...) or confirmation code (PC-CONF-...) provided by guest
-        email: Exact guest email address used during booking
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
-    """
-    clean_id = identifier.strip()
-    clean_email = email.strip().lower()
-
-    with _get_db_context() as db:
-        booking = (
-            db.query(Booking)
-            .filter((Booking.confirmation_code == clean_id) | (Booking.booking_ref == clean_id))
-            .first()
-        )
-        if not booking or booking.guest_email.lower().strip() != clean_email:
-            logger.warning("TOOL claim_booking -> security mismatch for identifier=%s email=%s", clean_id, clean_email)
-            return "Security Verification Failed: No booking found matching that reference/code and email combination."
-
-        booking.guest_session_id = session_id
-        db.commit()
-        status_info = compute_display_status(booking)
-        return (
-            f"Booking {booking.booking_ref} has been verified and successfully linked to your current session!\n"
-            f"- Status: {status_info}\n"
-            f"- Dates: {booking.check_in} to {booking.check_out}\n"
-            f"- Total: PKR {booking.total_amount:,.2f}"
-        )
-
-
-# ============================================================================
-# 3. SECURE REDIRECTION TOOLS (PAYMENT & REFUND PORTALS)
-# ============================================================================
-
-@tool
-def get_payment_checkout_link_tool(booking_ref: str, session_id: int = 1) -> str:
-    """
-    Provides the secure checkout page link so the guest can pay for an unpaid booking hold.
-    Never collect credit card numbers in the chat!
-    ONLY call this tool AFTER the guest provides their real Booking Reference (e.g. 'HB-...').
-    NEVER call with dummy placeholders like '[Booking Reference]' or '[HB-...]'.
-    Args:
-        booking_ref: Real booking reference provided by the guest
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
-    """
-    with _get_db_context() as db:
-        booking = db.query(Booking).filter_by(booking_ref=booking_ref, guest_session_id=session_id).first()
+        booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
         if not booking:
-            logger.warning("TOOL get_payment_checkout_link -> booking %s not found in session", booking_ref)
-            return f"Booking {booking_ref} not found for this session."
+            return f"Booking reference {booking_ref} not found."
+        if booking.user_id != user_id:
+            return "Access denied: This booking does not belong to your account."
 
         if booking.payment_status == "PAID":
             return f"Booking {booking_ref} is already paid and confirmed."
 
         return (
-            f"Please complete your payment safely on our checkout portal: "
-            f"http://localhost:3000/checkout/{booking.booking_ref} (Total: PKR {booking.total_amount:.2f})"
+            f"Your booking hold ({booking.booking_ref}) is ready for payment (Total: PKR {booking.total_amount:,.2f}).\n"
+            f"To execute the actual payment, please submit a POST request to the secure backend endpoint: `/bookings/{booking.booking_ref}/pay` "
+            f"with your X-Idempotency-Key header, or contact our Front Desk at +92-42-111-505-505 for further assistance."
         )
 
 
 @tool
-def get_refund_portal_link_tool(booking_ref: str, session_id: int = 1) -> str:
+def get_refund_quote_tool(booking_ref: str, user_id: int = 0) -> str:
     """
-    Provides the secure refund request portal link for a paid booking.
-    Financial refunds must be submitted through the portal after verifying policy.
-    ONLY call this tool AFTER the guest provides their real Booking Reference (e.g. 'HB-...').
-    NEVER call with dummy placeholders like '[Booking Reference]' or '[HB-...]'.
+    Step 1: Preview refund eligibility and amounts without needing confirmation code.
     Args:
-        booking_ref: Real booking reference provided by the guest
-        session_id: Active guest session ID (automatically assigned, do not ask the user)
+        booking_ref: The booking reference code (e.g. 'HB-...')
+        user_id: Authenticated user ID (automatically assigned)
     """
-    with _get_db_context() as db:
-        booking = db.query(Booking).filter_by(booking_ref=booking_ref, guest_session_id=session_id).first()
-        if not booking:
-            logger.warning("TOOL get_refund_portal_link -> booking %s not found in session", booking_ref)
-            return f"Booking {booking_ref} not found for this session."
+    if not user_id or user_id == 0:
+        return "Authentication required to check refund quotes."
 
-        return (
-            f"To review cancellation policies and initiate a refund for booking {booking_ref}, "
-            f"please visit: http://localhost:3000/refunds/{booking.booking_ref}"
-        )
+    with _get_db_context() as db:
+        booking = db.query(Booking).filter_by(booking_ref=booking_ref).first()
+        if not booking:
+            return f"Booking reference {booking_ref} not found."
+        if booking.user_id != user_id:
+            return "Access denied: You do not own this booking."
+
+        try:
+            quote = get_refund_quote_handler(db, booking_ref, user_id)
+            return (
+                f"Refund Quote Preview for Booking {quote['booking_ref']}:\n"
+                f"- Eligible for Refund: {'Yes' if quote['eligible'] else 'No'}\n"
+                f"- Refund Percentage: {quote['percent']}%\n"
+                f"- Refund Amount: PKR {quote['refund_amount']:,.2f} (Total Paid: PKR {quote['total_amount']:,.2f})\n"
+                f"- Policy Context: {quote['reason']}\n"
+                f"To proceed with cancellation and execute the refund, please use endpoint: POST /bookings/{quote['booking_ref']}/refund-and-cancel?confirmation_code=YOUR_CODE"
+            )
+        except Exception as e:
+            return f"Could not generate refund quote: {str(e)}"
 
 
 ALL_GUEST_TOOLS = [
     search_hotel_policies_tool,
     search_room_availability_tool,
+    search_services_tool,
+    get_booking_services_tool,
+    add_service_to_hold_tool,
     create_booking_hold_tool,
     list_guest_bookings_tool,
     cancel_booking_tool,
-    claim_booking_tool,
-    request_claim_otp_tool,
-    verify_claim_otp_tool,
-    get_payment_checkout_link_tool,
-    get_refund_portal_link_tool
+    get_payment_link_info_tool,
+    get_refund_quote_tool
 ]

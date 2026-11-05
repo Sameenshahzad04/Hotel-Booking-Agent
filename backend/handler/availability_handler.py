@@ -1,3 +1,4 @@
+#!handler/availability_handler.py
 from datetime import date, datetime, timezone
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
@@ -31,6 +32,33 @@ def expire_stale_holds(db: Session) -> int:
         db.commit()
     return count
 
+def update_completed_stays_handler(db: Session) -> int:
+    """
+    Automatically updates CONFIRMED bookings to COMPLETED 
+    once the check-out date has passed.
+    """
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    
+    completed_bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.status == "CONFIRMED",
+            Booking.check_out < today
+        )
+        .all()
+    )
+
+    count = 0
+    for b in completed_bookings:
+        b.status = "COMPLETED"
+        for br in b.booking_rooms:
+            br.blocks_inventory = False  # Free up rooms after checkout
+        count += 1
+
+    if count > 0:
+        db.commit()
+    return count
 def query_live_availability(
     db: Session,
     check_in: date,
@@ -44,6 +72,8 @@ def query_live_availability(
     # 1. First, release any stale holds that passed the 2-hour mark
     expire_stale_holds(db)
 
+# 2. Automatically update any completed stays so their inventory frees up
+    update_completed_stays_handler(db)
     # 2. Subquery: Find room_ids that are occupied during the requested dates
     # Date overlap logic: (check_in < requested_check_out) AND (check_out > requested_check_in)
     occupied_rooms_subquery = (
@@ -88,3 +118,4 @@ def query_live_availability(
         })
 
     return availability_list
+

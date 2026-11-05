@@ -1,16 +1,18 @@
+#!handler/payment_handler.py
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from models.db_models import Booking, Transaction, Notification
+from models.db_models import Booking, Transaction, Notification, UserAccount
 from util.security_util import generate_confirmation_code
 
 def process_payment_handler(
     db: Session,
     booking_ref: str,
-    guest_session_id: int,
+    user_id: int,
     idempotency_key: str
 ) -> dict:
     """
-    Handles payment transaction, generates HB-XXXXXX code, and enqueues confirmation email.
+    Handles payment transaction for the authenticated user, generates HB-XXXXXX code, 
+    and enqueues confirmation email.
     """
     now = datetime.now(timezone.utc)
 
@@ -38,7 +40,8 @@ def process_payment_handler(
     if not booking:
         raise ValueError("Booking reference not found.")
 
-    if booking.guest_session_id != guest_session_id:
+    # Validate ownership against authenticated user_id
+    if booking.user_id != user_id:
         raise PermissionError("Access denied: You do not own this booking.")
 
     if booking.status != "PENDING":
@@ -55,6 +58,11 @@ def process_payment_handler(
         db.commit()
         raise ValueError("Hold has expired. Please book again.")
 
+    # Fetch user account for dynamic name and email details
+    user_account = db.query(UserAccount).filter_by(id=user_id).first()
+    guest_name = user_account.full_name if user_account else "Valued Guest"
+    guest_email = user_account.email if user_account else ""
+
     # 3. Confirm booking
     confirmation_code = generate_confirmation_code()
     booking.confirmation_code = confirmation_code
@@ -62,9 +70,9 @@ def process_payment_handler(
     booking.payment_status = "PAID"
     booking.paid_at = now
 
-    # 4. Insert Transaction
+    # 4. Insert Transaction (linked to user_id instead of guest_session_id)
     tx = Transaction(
-        guest_session_id=guest_session_id,
+        user_id=user_id,
         booking_id=booking.id,
         type="PAYMENT",
         status="SUCCEEDED",
@@ -77,7 +85,7 @@ def process_payment_handler(
     room_names = ", ".join(br.room.room_type.name for br in booking.booking_rooms)
     nights = (booking.check_out - booking.check_in).days
     email_body = (
-        f"Dear {booking.guest_name},\n\n"
+        f"Dear {guest_name},\n\n"
         f"Your reservation at Pearl Continental Hotel Lahore is CONFIRMED!\n\n"
         f"Confirmation Code: {confirmation_code}\n"
         f"Booking Reference: {booking.booking_ref}\n"
@@ -92,7 +100,7 @@ def process_payment_handler(
     notification = Notification(
         booking_id=booking.id,
         kind="CONFIRMED",
-        to_email=booking.guest_email,
+        to_email=guest_email,
         subject=f"PC Lahore Booking Confirmed: {confirmation_code}",
         body=email_body
     )
@@ -101,11 +109,11 @@ def process_payment_handler(
     db.commit()
     db.refresh(booking)
 
-    # 6. Send live confirmation email via SMTP (or console log if mock)
+    # 6. Send live confirmation email via SMTP
     try:
         from util.email_service import send_smtp_email
         send_smtp_email(
-            to_email=booking.guest_email,
+            to_email=guest_email,
             subject=notification.subject,
             body_text=notification.body
         )

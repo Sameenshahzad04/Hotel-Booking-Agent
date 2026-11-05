@@ -1,11 +1,12 @@
+
 from datetime import date
 from typing import Dict, List, Any
 
 def calculate_stay_pricing(
     check_in: date,
     check_out: date,
-    room_allocations: List[Dict[str, Any]],  # [{"name": str, "base_price": float, "quantity": int}]
-    selected_services: List[Dict[str, Any]], # [{"name": str, "price": float, "pricing_unit": str, "quantity": int}]
+    room_allocations: List[Dict[str, Any]],  # [{"room_type_id": int, "name": str, "base_price": float, "quantity": int}]
+    selected_services: List[Dict[str, Any]], # [{"service_id": int, "name": str, "price": float, "pricing_unit": str, "quantity": int}]
     guests: int
 ) -> Dict[str, Any]:
     """
@@ -19,10 +20,10 @@ def calculate_stay_pricing(
     total_rooms_cost = 0.0
 
     for r in room_allocations:
-        qty = r["quantity"]
+        qty = r.get("quantity", 0)
         if qty <= 0:
             continue
-        base_price = r["base_price"]
+        base_price = r.get("base_price", 0.0)
         subtotal = round(base_price * nights * qty, 2)
         total_rooms_cost += subtotal
         rooms_breakdown.append({
@@ -69,7 +70,7 @@ def calculate_stay_pricing(
         "guests": guests,
         "rooms_breakdown": rooms_breakdown,
         "services_breakdown": services_breakdown,
-        "total_rooms_cost": total_rooms_cost,
-        "total_services_cost": total_services_cost,
+        "total_rooms_cost": round(total_rooms_cost, 2),
+        "total_services_cost": round(total_services_cost, 2),
         "total_amount": total_amount
     }

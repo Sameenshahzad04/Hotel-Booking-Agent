@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in | Pearl Continental Lahore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="login">
+<main class="auth-wrap">
+  <aside class="auth-aside">
+    <span class="eyebrow" style="color:var(--gold)">Welcome back</span>
+    <h2>Your stay, managed in one place</h2>
+    <p>Sign in to book rooms, add services, review reservations and chat with our concierge.</p>
+    <ul><li>Book and pay in minutes</li><li>Add breakfast or transport before you pay</li><li>Cancel or request a refund online</li></ul>
+  </aside>
+  <section class="auth-main">
+    <div class="auth-card">
+      <h1>Sign in</h1>
+      <p class="muted" style="margin-bottom:1.5rem">New here? <a href="register.html" id="to-register">Create an account</a></p>
+      <div id="form-error" class="alert alert-error hidden" role="alert" style="margin-bottom:1rem"></div>
+      <form id="login-form" novalidate>
+        <div class="field"><label for="email">Email address</label><input class="input" type="email" id="email" autocomplete="email" required></div>
+        <div class="field"><label for="password">Password</label>
+          <div class="input-wrap"><input class="input" type="password" id="password" autocomplete="current-password" required><button type="button" class="toggle-pw" id="tpw">Show</button></div>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit" id="submit">Sign in</button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, api, Auth, withLoading, qs, setTitle } = App;
+  setTitle('Sign in');
+  const next = qs('next') || 'index.html';
+  // Only allow same-site relative redirects
+  const safeNext = /^[a-z0-9_\-]+\.html(\?.*)?$/i.test(next) ? next : 'index.html';
+  $('#to-register').href = 'register.html?next=' + encodeURIComponent(safeNext);
+
+  if (Auth.loggedIn) { App.ready.then(() => { if (Auth.loggedIn) location.replace(safeNext); }); }
+
+  $('#tpw').onclick = () => { const p = $('#password'); const show = p.type === 'password'; p.type = show ? 'text' : 'password'; $('#tpw').textContent = show ? 'Hide' : 'Show'; };
+
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#form-error'); err.classList.add('hidden');
+    const email = $('#email').value.trim(), password = $('#password').value;
+    if (!email || !password) { err.textContent = 'Please enter your email and password.'; err.classList.remove('hidden'); return; }
+    try {
+      await withLoading($('#submit'), async () => {
+        const data = await api('/auth/login', { method: 'POST', body: { email, password }, auth: false });
+        Auth.set(data.session_token, data.user);
+      });
+      location.href = safeNext;
+    } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+  });
+})();
+</script>
+</body>
+</html>

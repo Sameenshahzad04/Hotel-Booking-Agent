@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
 
@@ -30,6 +31,18 @@ class Config:
         "SYSTEM_MESSAGE", 
         "You are the official AI concierge for Pearl Continental (PC) Hotel Lahore."
     )
+
+    # -------------------------------------------------------------------------
+    # Google Gemini Free Tier Settings (OpenAI-Compatible)
+    # -------------------------------------------------------------------------
+    # GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    # GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+    # GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    
+    # SYSTEM_MESSAGE = os.getenv(
+    #     "SYSTEM_MESSAGE", 
+    #     "You are the official AI concierge for Pearl Continental (PC) Hotel Lahore."
+    # )
 
     # -------------------------------------------------------------------------
     # Hotel Business Rules & Constants
@@ -91,3 +104,14 @@ def get_llm():
             "X-Title": "PCLahoreHotelAgent"
         }
     )
+
+# def get_llm():
+#     """Initializes and returns the native Google GenAI chat model."""
+#     if not os.getenv("GEMINI_API_KEY"):
+#         print("⚠️ Warning: GEMINI_API_KEY is not set in .env.")
+
+#     return ChatGoogleGenerativeAI(
+#         model=config.GEMINI_MODEL,  # Native integration handles tools & signatures seamlessly
+#         temperature=0.2,
+#         google_api_key=config.GEMINI_API_KEY
+#     )
