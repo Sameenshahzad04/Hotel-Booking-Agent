@@ -1,0 +1,1197 @@
+<template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <!doctype html>
+  <html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Guest Details & Add-ons — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+      rel="stylesheet">
+  </head>
+
+  <body>
+    <main id="main" class="section">
+      <div class="wrap" style="max-width:720px">
+        <h1>Reservation Details</h1>
+        <ol class="steps">
+          <li class="done"><span>✓</span> Choose room</li>
+          <li class="on"><span>2</span> Guest details &amp; add-ons</li>
+          <li><span>3</span> Secure payment</li>
+          <li><span>4</span> Confirmation</li>
+        </ol>
+
+        <div class="card" style="margin-top:1.5rem">
+          <div class="alert" id="alert" role="alert"></div>
+
+          <!-- Date & Guest Selector Box -->
+          <!-- <div style="background:var(--s2); padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+          <h3 style="font-size:1.05rem; margin-bottom:.75rem;">Stay Dates &amp; Guests</h3>
+          <div class="row" style="gap:1rem; flex-wrap:wrap;">
+            <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+              <label for="check-in" style="font-size:0.85rem">Check-in</label>
+              <input type="date" id="check-in" required style="margin-top:.2rem;">
+            </div>
+            <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+              <label for="check-out" style="font-size:0.85rem">Check-out</label>
+              <input type="date" id="check-out" required style="margin-top:.2rem;">
+            </div>
+            <div class="field" style="flex:1; min-width:120px; margin-bottom:0;">
+              <label for="guests" style="font-size:0.85rem">Guests</label>
+              <select id="guests" style="margin-top:.2rem; height:42px;">
+                <option value="1">1 guest</option>
+                <option value="2">2 guests</option>
+                <option value="3">3 guests</option>
+                <option value="4">4 guests</option>
+              </select>
+            </div>
+          </div>
+        </div> -->
+          <!-- Date & Guest Selector Box -->
+          <div style="background:var(--s2); padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+            <h3 style="font-size:1.05rem; margin-bottom:.75rem;">Stay Dates &amp; Guests</h3>
+            <div class="row" style="gap:1rem; flex-wrap:wrap;">
+              <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+                <label for="check-in" style="font-size:0.85rem">Check-in</label>
+                <input type="date" id="check-in" required style="margin-top:.2rem;">
+              </div>
+              <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+                <label for="check-out" style="font-size:0.85rem">Check-out</label>
+                <input type="date" id="check-out" required style="margin-top:.2rem;">
+              </div>
+              <div class="field" style="flex:1; min-width:120px; margin-bottom:0;">
+                <label for="guests" style="font-size:0.85rem">Guests</label>
+                <select id="guests" style="margin-top:.2rem; height:42px;">
+                  <option value="1">1 guest</option>
+                  <option value="2">2 guests</option>
+                  <option value="3">3 guests</option>
+                  <option value="4">4 guests</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <form id="checkout-form" novalidate>
+            <h2>Guest Information</h2>
+            <p class="muted" style="margin-bottom:1rem">Retrieved securely from your account profile.</p>
+            <div class="field"><label for="full_name">Full name</label><input id="full_name" autocomplete="name"
+                required>
+              <p class="err" id="name-err"></p>
+            </div>
+            <div class="email-field field"><label for="email">Email</label><input id="email" type="email"
+                autocomplete="email" required>
+              <p class="err" id="email-err"></p>
+            </div>
+            <div class="field"><label for="phone">Phone Number</label><input id="phone" type="tel" autocomplete="tel"
+                placeholder="03001234567" required>
+              <p class="err" id="phone-err"></p>
+            </div>
+
+            <div class="row" style="gap:1rem; margin-top:1rem;">
+              <div class="field" style="flex:1">
+                <label for="room-qty">Room Quantity</label>
+                <input id="room-qty" type="number" min="1" value="1" required>
+              </div>
+
+            </div>
+
+            <h2 style="margin-top:2rem">Add-on Services</h2>
+            <p class="muted" style="margin-bottom:1rem">Enhance your stay with our exclusive hospitality packages.</p>
+            <div id="services-container" class="stack" style="gap:.75rem; margin-bottom:1.5rem;">
+              <div class="skeleton"></div>
+            </div>
+
+            <div class="field" style="margin-bottom:1.5rem;">
+              <label style="display:flex; align-items:flex-start; gap:.6rem; cursor:pointer; font-size:.95rem;">
+                <input type="checkbox" id="terms" required style="width:20px; height:20px; margin-top:.2rem;">
+                <span>I agree to the hotel booking terms, 2-hour hold condition, and cancellation policy.</span>
+              </label>
+              <p class="err" id="terms-err"></p>
+            </div>
+
+            <button class="btn primary lg block" type="submit">Create Hold &amp; Proceed to Pay →</button>
+          </form>
+        </div>
+      </div>
+    </main>
+    <script src="common.js"></script>
+    <!-- <script>
+    // document.addEventListener("DOMContentLoaded", async () => {
+    //   renderHeader("");
+    //   const q = new URLSearchParams(location.search), u = getUser(), today = localISO(new Date());
+    //   if (!u) { goLogin(); return; }
+
+    //   if ($("full_name")) $("full_name").value = u.full_name || "";
+    //   if ($("email")) $("email").value = u.email || "";
+    //   if ($("phone")) $("phone").value = u.phone || "";
+
+    //   if (q.has("check_in")) {
+    //     const ciInput = document.getElementById("check-in");
+    //     if (ciInput) ciInput.value = q.get("check_in");
+    //   }
+    //   if (q.has("check_out")) {
+    //     const coInput = document.getElementById("check-out");
+    //     if (coInput) coInput.value = q.get("check_out");
+    //   }
+    //   if (q.has("guests")) {
+    //     const guestsInput = document.getElementById("guests");
+    //     if (guestsInput) guestsInput.value = q.get("guests");
+    //   }
+    //   // Extract all query parameters safely
+    //   const ci = q.get("check_in") || today;
+    //   const co = q.get("check_out") || addDays(today, 1);
+    //   const rid = q.get("room"); // FIXED: Room ID is now properly extracted
+    //   const g = q.get("guests") || "2";
+
+    //   if (!rid) {
+    //     location.href = "book.html";
+    //     return;
+    //   }
+
+    //   const checkInInput = $("check-in");
+    //   const checkOutInput = $("check-out");
+    //   const guestsSelect = $("guests");
+
+    //   if (checkInInput) {
+    //     checkInInput.min = today;
+    //     checkInInput.value = ci;
+    //   }
+    //   if (checkOutInput) {
+    //     checkOutInput.min = addDays(ci, 1);
+    //     checkOutInput.value = co;
+    //   }
+    //   if (guestsSelect) {
+    //     guestsSelect.value = g; // FIXED: Guest dropdown now correctly matches selection
+    //   }
+
+    //   if (checkInInput && checkOutInput) {
+    //     checkInInput.onchange = e => {
+    //       const nextDay = addDays(e.target.value, 1);
+    //       checkOutInput.min = nextDay;
+    //       if (checkOutInput.value <= e.target.value) {
+    //         checkOutInput.value = nextDay;
+    //       }
+    //     };
+    //   }
+
+    //   // Load available services from DB
+    //   try {
+    //     const sr = await apiFetch("/services");
+    //     const sd = await json(sr);
+    //     const services = sd.services || [];
+    //     const container = $("services-container");
+    //     if (container) {
+    //       container.innerHTML = services.length ? services.map(s => `
+    //         <label class="card row between" style="padding:.75rem 1rem; background:var(--s2); cursor:pointer; align-items:center;">
+    //           <div class="row" style="gap:.75rem; align-items:center;">
+    //             <input type="checkbox" name="addon" value="${s.id}" style="width:18px;height:18px;">
+    //             <div>
+    //               <strong>${esc(s.name)}</strong>
+    //               <div class="muted" style="font-size:.85rem">${esc(s.description)}</div>
+    //             </div>
+    //           </div>
+    //           <span style="font-weight:600; color:var(--primary);">${fmtPKR(s.price)} <small style="font-size:0.75rem">(${s.pricing_unit})</small></span>
+    //         </label>
+    //       `).join("") : '<p class="muted">No add-ons currently available.</p>';
+    //     }
+    //   } catch {
+    //     if ($("services-container")) $("services-container").innerHTML = '<p class="muted">Could not load add-on services.</p>';
+    //   }
+
+    //   const checkoutForm = $("checkout-form");
+    //   if (checkoutForm) {
+    //     checkoutForm.onsubmit = async e => {
+    //       e.preventDefault();
+    //       const alertEl = $("alert"); if (alertEl) alertEl.classList.remove("show");
+    //       $$(".err").forEach(x => x.textContent = "");
+
+    //       const name = $("full_name")?.value.trim() || "";
+    //       const email = $("email")?.value.trim() || "";
+    //       const phone = $("phone")?.value.trim() || "";
+    //       const finalCheckIn = checkInInput ? checkInInput.value : ci;
+    //       const finalCheckOut = checkOutInput ? checkOutInput.value : co;
+    //       const finalGuests = guestsSelect ? Number(guestsSelect.value) : Number(g);
+
+    //       let ok = true;
+    //       if (name.length < 2) { const el = $("name-err"); if (el) el.textContent = "Full name is required."; ok = false; }
+    //       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { const el = $("email-err"); if (el) el.textContent = "Valid email is required."; ok = false; }
+    //       if (phone.replace(/\D/g, "").length < 11) { const el = $("phone-err"); if (el) el.textContent = "Valid 11-digit phone number is required."; ok = false; }
+    //       if (!finalCheckIn || !finalCheckOut || finalCheckOut <= finalCheckIn) {
+    //         if (alertEl) { alertEl.textContent = "Check-out date must be strictly after check-in."; alertEl.classList.add("show"); }
+    //         ok = false;
+    //       }
+    //       if ($("terms") && !$("terms").checked) { const el = $("terms-err"); if (el) el.textContent = "You must agree to the Booking Policy."; ok = false; }
+    //       if (!ok) return;
+
+    //       const btn = e.target.querySelector("button[type=submit]");
+    //       if (btn) { btn.disabled = true; btn.textContent = "Creating hold..."; }
+
+    //       try {
+    //         const roomsDict = {};
+    //         roomsDict[Number(rid)] = Number($("room-qty")?.value || 1);
+
+    //         const selectedServices = $$("input[name=addon]:checked").map(el => ({
+    //           service_id: Number(el.value),
+    //           quantity: 1
+    //         }));
+
+    //         const holdPayload = {
+    //           check_in: finalCheckIn,
+    //           check_out: finalCheckOut,
+    //           guests: finalGuests,
+    //           rooms: roomsDict,
+    //           services: selectedServices
+    //         };
+
+    //         const holdRes = await apiFetch("/bookings", {
+    //           method: "POST",
+    //           headers: { "Content-Type": "application/json" },
+    //           body: JSON.stringify(holdPayload)
+    //         });
+    //         const holdData = await json(holdRes);
+    //         if (!holdRes.ok) throw new Error(errText(holdData, "Failed to create booking hold."));
+
+    //         toast(`Hold created! Ref: #${holdData.booking_ref}`, "success");
+    //         setTimeout(() => {
+    //           location.href = `payment.html?ref=${encodeURIComponent(holdData.booking_ref)}`;
+    //         }, 600);
+    //       } catch (err) {
+    //         if (alertEl) {
+    //           alertEl.textContent = err.message;
+    //           alertEl.classList.add("show");
+    //         }
+    //         if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+    //       }
+    //     };
+    //   }
+    // });
+
+   
+  </script> -->
+
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+
+
+
+        renderHeader("");
+        const q = new URLSearchParams(location.search), u = getUser(), today = localISO(new Date());
+        if (!u) { goLogin(); return; }
+
+        if ($("full_name")) $("full_name").value = u.full_name || "";
+        if ($("email")) $("email").value = u.email || "";
+        if ($("phone")) $("phone").value = u.phone || "";
+
+        // 1. Read from URL params -> Fallback to localStorage -> Fallback to defaults
+        const ci = q.get("check_in") || localStorage.getItem("pc_check_in") || today;
+        const co = q.get("check_out") || localStorage.getItem("pc_check_out") || addDays(ci, 1);
+        const rid = q.get("room");
+        const g = q.get("guests") || localStorage.getItem("pc_guests") || "2";
+
+        // Save active preferences to localStorage
+        localStorage.setItem("pc_check_in", ci);
+        localStorage.setItem("pc_check_out", co);
+        localStorage.setItem("pc_guests", g);
+
+        if (!rid) {
+          location.href = "book.html";
+          return;
+        }
+
+        const checkInInput = $("check-in");
+        const checkOutInput = $("check-out");
+        const guestsSelect = $("guests");
+
+        if (checkInInput) {
+          checkInInput.min = today;
+          checkInInput.value = ci;
+        }
+        if (checkOutInput) {
+          checkOutInput.min = addDays(ci, 1);
+          checkOutInput.value = co;
+        }
+        if (guestsSelect) {
+          guestsSelect.value = g;
+        }
+
+        if (checkInInput && checkOutInput) {
+          checkInInput.onchange = e => {
+            const nextDay = addDays(e.target.value, 1);
+            checkOutInput.min = nextDay;
+            if (checkOutInput.value <= e.target.value) {
+              checkOutInput.value = nextDay;
+            }
+          };
+        }
+
+        // // 2. Live URL and localStorage synchronizer when user changes dates/guests on checkout
+        // const updateUrlParams = () => {
+        //   const ciVal = checkInInput ? checkInInput.value : ci;
+        //   const coVal = checkOutInput ? checkOutInput.value : co;
+        //   const gVal = guestsSelect ? guestsSelect.value : g;
+        //   const ridVal = rid || "";
+
+        //   // Update localStorage
+        //   localStorage.setItem("pc_check_in", ciVal);
+        //   localStorage.setItem("pc_check_out", coVal);
+        //   localStorage.setItem("pc_guests", gVal);
+
+        //   const newParams = new URLSearchParams(location.search);
+        //   newParams.set("check_in", ciVal);
+        //   newParams.set("check_out", coVal);
+        //   newParams.set("guests", gVal);
+        //   if (ridVal) newParams.set("room", ridVal);
+
+        //   history.replaceState(null, "", `${location.pathname}?${newParams.toString()}`);
+        // };
+
+        const updateUrlParams = () => {
+          const ciVal = checkInInput ? checkInInput.value : ci;
+          const coVal = checkOutInput ? checkOutInput.value : co;
+          const ridVal = rid || "";
+
+          // Automatically syncs localStorage and URL query params globally
+          saveStayPrefs(ciVal, coVal, adults, children);
+
+          if (ridVal) {
+            const newParams = new URLSearchParams(location.search);
+            newParams.set("room", ridVal);
+            history.replaceState(null, "", `${location.pathname}?${newParams.toString()}`);
+          }
+        };
+
+
+        if (checkInInput) checkInInput.addEventListener("change", updateUrlParams);
+        if (checkOutInput) checkOutInput.addEventListener("change", updateUrlParams);
+        if (guestsSelect) guestsSelect.addEventListener("change", updateUrlParams);
+
+        // Load available services from DB
+        try {
+          const sr = await apiFetch("/services");
+          const sd = await json(sr);
+          const services = sd.services || [];
+          const container = $("services-container");
+          if (container) {
+            container.innerHTML = services.length ? services.map(s => `
+            <label class="card row between" style="padding:.75rem 1rem; background:var(--s2); cursor:pointer; align-items:center;">
+              <div class="row" style="gap:.75rem; align-items:center;">
+                <input type="checkbox" name="addon" value="${s.id}" style="width:18px;height:18px;">
+                <div>
+                  <strong>${esc(s.name)}</strong>
+                  <div class="muted" style="font-size:.85rem">${esc(s.description)}</div>
+                </div>
+              </div>
+              <span style="font-weight:600; color:var(--primary);">${fmtPKR(s.price)} <small style="font-size:0.75rem">(${s.pricing_unit})</small></span>
+            </label>
+          `).join('') : '<p class="muted">No add-ons currently available.</p>';
+          }
+        } catch {
+          if ($("services-container")) $("services-container").innerHTML = '<p class="muted">Could not load add-on services.</p>';
+        }
+
+        const checkoutForm = $("checkout-form");
+        if (checkoutForm) {
+          checkoutForm.onsubmit = async e => {
+            e.preventDefault();
+            const alertEl = $("alert"); if (alertEl) alertEl.classList.remove("show");
+            $$(".err").forEach(x => x.textContent = "");
+
+            const name = $("full_name")?.value.trim() || "";
+            const email = $("email")?.value.trim() || "";
+            const phone = $("phone")?.value.trim() || "";
+            const finalCheckIn = checkInInput ? checkInInput.value : ci;
+            const finalCheckOut = checkOutInput ? checkOutInput.value : co;
+            const finalGuests = guestsSelect ? Number(guestsSelect.value) : Number(g);
+
+            let ok = true;
+            if (name.length < 2) { const el = $("name-err"); if (el) el.textContent = "Full name is required."; ok = false; }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { const el = $("email-err"); if (el) el.textContent = "Valid email is required."; ok = false; }
+            if (phone.replace(/\D/g, "").length < 11) { const el = $("phone-err"); if (el) el.textContent = "Valid 11-digit phone number is required."; ok = false; }
+            if (!finalCheckIn || !finalCheckOut || finalCheckOut <= finalCheckIn) {
+              if (alertEl) { alertEl.textContent = "Check-out date must be strictly after check-in."; alertEl.classList.add("show"); }
+              ok = false;
+            }
+            if ($("terms") && !$("terms").checked) { const el = $("terms-err"); if (el) el.textContent = "You must agree to the Booking Policy."; ok = false; }
+            if (!ok) return;
+
+            const btn = e.target.querySelector("button[type=submit]");
+            if (btn) { btn.disabled = true; btn.textContent = "Creating hold..."; }
+
+            try {
+              const roomsDict = {};
+              roomsDict[Number(rid)] = Number($("room-qty")?.value || 1);
+
+              const selectedServices = $$("input[name=addon]:checked").map(el => ({
+                service_id: Number(el.value),
+                quantity: 1
+              }));
+
+              const childAgeInputs = $$(".child-age-input");
+              const childrenDetails = childAgeInputs.map(input => ({ age: Number(input.value) || 0 }));
+
+
+              const holdPayload = {
+                check_in: finalCheckIn,
+                check_out: finalCheckOut,
+                guests: finalGuests,
+                children_details: childrenDetails, // <--- Sent to backend handler successfully
+                rooms: roomsDict,
+                services: selectedServices
+              };
+
+              const holdRes = await apiFetch("/bookings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(holdPayload)
+              });
+              const holdData = await json(holdRes);
+              if (!holdRes.ok) throw new Error(errText(holdData, "Failed to create booking hold."));
+
+              toast(`Hold created! Ref: #${holdData.booking_ref}`, "success");
+              setTimeout(() => {
+                location.href = `payment.html?ref=${encodeURIComponent(holdData.booking_ref)}`;
+              }, 600);
+            } catch (err) {
+              if (alertEl) {
+                alertEl.textContent = err.message;
+                alertEl.classList.add("show");
+              }
+              if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+            }
+          };
+        }
+      });
+    </script>
+
+
+  </body>
+
+  </html>
+
+
+
+
+
+</template>
+
+
+
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Guest Details & Add-ons — Pearl Continental</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <main id="main" class="section">
+    <div class="wrap" style="max-width:720px">
+      <h1>Reservation Details</h1>
+      <ol class="steps">
+        <li class="done"><span>✓</span> Choose room</li>
+        <li class="on"><span>2</span> Guest details &amp; add-ons</li>
+        <li><span>3</span> Secure payment</li>
+        <li><span>4</span> Confirmation</li>
+      </ol>
+
+      <div class="card" style="margin-top:1.5rem">
+        <div class="alert" id="alert" role="alert"></div>
+
+        <!-- Professional Date & Guest Selector Box -->
+        <div style="background:var(--s2); padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+          <h3 style="font-size:1.05rem; margin-bottom:.75rem;">Stay Dates &amp; Guests</h3>
+          <div class="row" style="gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+              <label for="check-in" style="font-size:0.85rem">Check-in</label>
+              <input type="date" id="check-in" required style="margin-top:.2rem;">
+            </div>
+            <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+              <label for="check-out" style="font-size:0.85rem">Check-out</label>
+              <input type="date" id="check-out" required style="margin-top:.2rem;">
+            </div>
+
+            <!-- Professional Guest & Children Drawer Toggle -->
+            <div class="field" style="flex:1; min-width:220px; margin-bottom:0; text-align:left; position:relative;">
+              <label style="font-size:0.85rem">Guests &amp; Rooms</label>
+              <div id="guest-dropdown-toggle"
+                style="width:100%; height:42px; padding:.5rem .75rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-top:.2rem;">
+                <span id="guest-summary-text">2 Adults, 0 Children</span>
+                <small>▼</small>
+              </div>
+
+              <div id="guest-popup-drawer"
+                style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:.5rem; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+                  <div>
+                    <strong style="color:#fff; display:block; font-size:.9rem;">Adults</strong>
+                    <small style="color:#94a3b8; font-size:0.75rem;">Ages 12 or above</small>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:.5rem;">
+                    <button type="button" class="btn sm" id="adult-minus">-</button>
+                    <span id="adult-count" style="color:#fff; min-width:20px; text-align:center;">2</span>
+                    <button type="button" class="btn sm" id="adult-plus">+</button>
+                  </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+                  <div>
+                    <strong style="color:#fff; display:block; font-size:.9rem;">Children</strong>
+                    <small style="color:#94a3b8; font-size:0.75rem;">Ages 0 – 11</small>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:.5rem;">
+                    <button type="button" class="btn sm" id="child-minus">-</button>
+                    <span id="child-count" style="color:#fff; min-width:20px; text-align:center;">0</span>
+                    <button type="button" class="btn sm" id="child-plus">+</button>
+                  </div>
+                </div>
+
+                <div id="child-ages-wrapper"
+                  style="border-top:1px solid #334155; margin-top:.75rem; padding-top:.75rem; display:none;">
+                  <small style="color:#94a3b8; display:block; margin-bottom:.5rem;">Please select
+                    child ages:</small>
+                  <div id="drawer-ages-container" style="display:flex; flex-direction:column; gap:.5rem;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form id="checkout-form" novalidate>
+          <h2>Guest Information</h2>
+          <p class="muted" style="margin-bottom:1rem">Retrieved securely from your account profile.</p>
+          <div class="field"><label for="full_name">Full name</label><input id="full_name" autocomplete="name" required>
+            <p class="err" id="name-err"></p>
+          </div>
+          <div class="email-field field"><label for="email">Email</label><input id="email" type="email"
+              autocomplete="email" required>
+            <p class="err" id="email-err"></p>
+          </div>
+          <div class="field"><label for="phone">Phone Number</label><input id="phone" type="tel" autocomplete="tel"
+              placeholder="03001234567" required>
+            <p class="err" id="phone-err"></p>
+          </div>
+
+          <div class="row" style="gap:1rem; margin-top:1rem;">
+            <div class="field" style="flex:1">
+              <label for="room-qty">Room Quantity</label>
+              <input id="room-qty" type="number" min="1" value="1" required>
+            </div>
+          </div>
+
+          <h2 style="margin-top:2rem">Add-on Services</h2>
+          <p class="muted" style="margin-bottom:1rem">Enhance your stay with our exclusive hospitality
+            packages.</p>
+          <div id="services-container" class="stack" style="gap:.75rem; margin-bottom:1.5rem;">
+            <div class="skeleton"></div>
+          </div>
+
+          <div class="field" style="margin-bottom:1.5rem;">
+            <label style="display:flex; align-items:flex-start; gap:.6rem; cursor:pointer; font-size:.95rem;">
+              <input type="checkbox" id="terms" required style="width:20px; height:20px; margin-top:.2rem;">
+              <span>I agree to the hotel booking terms, 2-hour hold condition, and cancellation
+                policy.</span>
+            </label>
+            <p class="err" id="terms-err"></p>
+          </div>
+
+          <button class="btn primary lg block" type="submit">Create Hold &amp; Proceed to Pay →</button>
+        </form>
+      </div>
+    </div>
+  </main>
+  <script src="common.js"></script>
+
+
+
+  <!-- <script>
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      renderHeader("");
+      const u = getUser(), today = localISO(new Date());
+      if (!u) { goLogin(); return; }
+
+      if ($("full_name")) $("full_name").value = u.full_name || "";
+      if ($("email")) $("email").value = u.email || "";
+      if ($("phone")) $("phone").value = u.phone || "";
+
+      // --- UNIVERSAL STATE SYNC VIA getStayPrefs() ---
+      const prefs = getStayPrefs();
+      let ci = prefs.ci;
+      let co = prefs.co;
+      let adults = Number(prefs.guests);
+      let children = Number(prefs.children);
+      let childAges = localStorage.getItem("pc_child_ages") ? JSON.parse(localStorage.getItem("pc_child_ages")) : [];
+
+      const q = new URLSearchParams(location.search);
+      const rid = q.get("room");
+
+      
+      // Re-sync input fields and variables whenever the page is restored from browser history
+      window.addEventListener("pageshow", () => {
+        const freshPrefs = getStayPrefs();
+        if ($("check-in")) $("check-in").value = freshPrefs.ci;
+        if ($("check-out")) $("check-out").value = freshPrefs.co;
+      });
+
+      if (!rid) {
+        location.href = "book.html";
+        return;
+      }
+
+      const checkInInput = $("check-in");
+      const checkOutInput = $("check-out");
+
+      if (checkInInput) {
+        checkInInput.min = today;
+        checkInInput.value = ci;
+      }
+      if (checkOutInput) {
+        checkOutInput.min = addDays(ci, 1);
+        checkOutInput.value = co;
+      }
+
+      if (checkInInput && checkOutInput) {
+        checkInInput.onchange = e => {
+          const nextDay = addDays(e.target.value, 1);
+          checkOutInput.min = nextDay;
+          if (checkOutInput.value <= e.target.value) {
+            checkOutInput.value = nextDay;
+          }
+        };
+      }
+
+      // Drawer Controller Elements & Logic
+      const toggleBtn = $("guest-dropdown-toggle");
+      const drawer = $("guest-popup-drawer");
+      const summaryText = $("guest-summary-text");
+      const adultCountEl = $("adult-count");
+      const childCountEl = $("child-count");
+
+      function updateSummary() {
+        if (summaryText) {
+          summaryText.textContent = `${adults} Adult${adults === 1 ? '' : 's'}, ${children} Child${children === 1 ? '' : 'ren'}`;
+        }
+        // localStorage.setItem("pc_guests", adults);
+        // localStorage.setItem("pc_children", children);
+
+        saveStayPrefs(null, null, adults, children);
+      }
+
+      function renderDrawerAges() {
+        const wrapper = $("child-ages-wrapper");
+        const container = $("drawer-ages-container");
+        if (!wrapper || !container) return;
+
+        if (children > 0) {
+          wrapper.style.display = "block";
+          container.innerHTML = Array.from({ length: children }, (_, i) => {
+            const age = childAges[i] !== undefined && childAges[i].age !== undefined ? childAges[i].age : 5;
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label style="color:#cbd5e1; font-size:0.8rem;">Child ${i + 1} Age</label>
+                <select class="drawer-age-select" data-index="${i}" style="padding:.3rem; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #334155;">
+                  ${Array.from({ length: 12 }, (_, a) => `<option value="${a}" ${age === a ? 'selected' : ''}>${a} year${a === 1 ? '' : 's'}</option>`).join('')}
+                </select>
+              </div>
+            `;
+          }).join('');
+
+          container.querySelectorAll(".drawer-age-select").forEach(sel => {
+            sel.onchange = e => {
+              const idx = Number(e.target.getAttribute("data-index"));
+              if (!childAges[idx]) childAges[idx] = {};
+              childAges[idx].age = Number(e.target.value);
+              localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+            };
+          });
+        } else {
+          wrapper.style.display = "none";
+          container.innerHTML = "";
+          localStorage.removeItem("pc_child_ages");
+        }
+      }
+
+      if (toggleBtn && drawer) {
+        toggleBtn.onclick = e => {
+          e.stopPropagation();
+          drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+        };
+        document.addEventListener("click", e => {
+          if (!drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+            drawer.style.display = "none";
+          }
+        });
+      }
+
+      if ($("adult-minus")) $("adult-minus").onclick = () => { if (adults > 1) { adults--; adultCountEl.textContent = adults; updateSummary(); } };
+      if ($("adult-plus")) $("adult-plus").onclick = () => { if (adults < 10) { adults++; adultCountEl.textContent = adults; updateSummary(); } };
+
+      if ($("child-minus")) $("child-minus").onclick = () => {
+        if (children > 0) {
+          children--;
+          childCountEl.textContent = children;
+          childAges.pop();
+          localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+          updateSummary();
+          renderDrawerAges();
+        }
+      };
+      if ($("child-plus")) $("child-plus").onclick = () => {
+        if (children < 6) {
+          children++;
+          childCountEl.textContent = children;
+          childAges.push({ age: 5 });
+          localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+          updateSummary();
+          renderDrawerAges();
+        }
+      };
+
+      if (adultCountEl) adultCountEl.textContent = adults;
+      if (childCountEl) childCountEl.textContent = children;
+      updateSummary();
+      renderDrawerAges();
+
+      const updateUrlParams = () => {
+        const ciVal = checkInInput ? checkInInput.value : ci;
+        const coVal = checkOutInput ? checkOutInput.value : co;
+        const ridVal = rid || "";
+
+        localStorage.setItem("pc_check_in", ciVal);
+        localStorage.setItem("pc_check_out", coVal);
+        localStorage.setItem("pc_guests", adults);
+        localStorage.setItem("pc_children", children);
+
+        const newParams = new URLSearchParams(location.search);
+        newParams.set("check_in", ciVal);
+        newParams.set("check_out", coVal);
+        newParams.set("guests", adults);
+        newParams.set("children", children);
+        if (ridVal) newParams.set("room", ridVal);
+
+        history.replaceState(null, "", `${location.pathname}?${newParams.toString()}`);
+      };
+
+      if (checkInInput) checkInInput.addEventListener("change", updateUrlParams);
+      if (checkOutInput) checkOutInput.addEventListener("change", updateUrlParams);
+
+      try {
+        const sr = await apiFetch("/services");
+        const sd = await json(sr);
+        const services = sd.services || [];
+        const container = $("services-container");
+        if (container) {
+          container.innerHTML = services.length ? services.map(s => `
+            <label class="card row between" style="padding:.75rem 1rem; background:var(--s2); cursor:pointer; align-items:center;">
+              <div class="row" style="gap:.75rem; align-items:center;">
+                <input type="checkbox" name="addon" value="${s.id}" style="width:18px;height:18px;">
+                <div>
+                  <strong>${esc(s.name)}</strong>
+                  <div class="muted" style="font-size:.85rem">${esc(s.description)}</div>
+                </div>
+              </div>
+              <span style="font-weight:600; color:var(--primary);">${fmtPKR(s.price)} <small style="font-size:0.75rem">(${s.pricing_unit})</small></span>
+            </label>
+          `).join('') : '<p class="muted">No add-ons currently available.</p>';
+        }
+      } catch {
+        if ($("services-container")) $("services-container").innerHTML = '<p class="muted">Could not load add-on services.</p>';
+      }
+
+      const checkoutForm = $("checkout-form");
+      if (checkoutForm) {
+        checkoutForm.onsubmit = async e => {
+          e.preventDefault();
+          const alertEl = $("alert"); if (alertEl) alertEl.classList.remove("show");
+          $$(".err").forEach(x => x.textContent = "");
+
+          const name = $("full_name")?.value.trim() || "";
+          const email = $("email")?.value.trim() || "";
+          const phone = $("phone")?.value.trim() || "";
+          const finalCheckIn = checkInInput ? checkInInput.value : ci;
+          const finalCheckOut = checkOutInput ? checkOutInput.value : co;
+
+
+          let ok = true;
+          if (name.length < 2) { const el = $("name-err"); if (el) el.textContent = "Full name is required."; ok = false; }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { const el = $("email-err"); if (el) el.textContent = "Valid email is required."; ok = false; }
+          if (phone.replace(/\D/g, "").length < 11) { const el = $("phone-err"); if (el) el.textContent = "Valid 11-digit phone number is required."; ok = false; }
+          if (!finalCheckIn || !finalCheckOut || finalCheckOut <= finalCheckIn) {
+            if (alertEl) { alertEl.textContent = "Check-out date must be strictly after check-in."; alertEl.classList.add("show"); }
+            ok = false;
+          }
+          if ($("terms") && !$("terms").checked) { const el = $("terms-err"); if (el) el.textContent = "You must agree to the Booking Policy."; ok = false; }
+          if (!ok) return;
+
+          const btn = e.target.querySelector("button[type=submit]");
+          if (btn) { btn.disabled = true; btn.textContent = "Creating hold..."; }
+
+          try {
+            const roomsDict = {};
+            roomsDict[Number(rid)] = Number($("room-qty")?.value || 1);
+
+            const selectedServices = $$("input[name=addon]:checked").map(el => ({
+              service_id: Number(el.value),
+              quantity: 1
+            }));
+
+
+            // --- GRAB LIVE AGES FROM DRAWER SELECTS ---
+            const childAgeSelects = $$(".drawer-age-select");
+            const childrenDetails = childAgeSelects.map(sel => ({ age: Number(sel.value) || 0 }));
+
+
+
+
+            const holdPayload = {
+              check_in: finalCheckIn,
+              check_out: finalCheckOut,
+              guests: adults,
+              children_details: childrenDetails,
+              rooms: roomsDict,
+              services: selectedServices
+            };
+
+            const holdRes = await apiFetch("/bookings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(holdPayload)
+            });
+            const holdData = await json(holdRes);
+            // if (!holdRes.ok) throw new Error(errText(holdData, "Failed to create booking hold."));
+            // Capacity Exception Handler Integration
+            if (!holdRes.ok) {
+              if (holdData.detail && holdData.detail.includes("exceeds total room capacity")) {
+                toast("Your party size exceeds this room's capacity. Please increase your Room Quantity or select a larger suite.", "error");
+                if (alertEl) {
+                  alertEl.textContent = "Your party size exceeds this room's capacity. Please increase your Room Quantity or select a larger suite.";
+                  alertEl.classList.add("show");
+                }
+                if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+                return;
+              } else {
+                throw new Error(errText(holdData, "Failed to create booking hold."));
+              }
+            }
+            toast(`Hold created! Ref: #${holdData.booking_ref}`, "success");
+            setTimeout(() => {
+              location.href = `payment.html?ref=${encodeURIComponent(holdData.booking_ref)}`;
+            }, 600);
+          } catch (err) {
+            if (alertEl) {
+              alertEl.textContent = err.message;
+              alertEl.classList.add("show");
+            }
+            if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+          }
+        };
+      }
+    });
+  </script> -->
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      renderHeader("");
+      const u = getUser(), today = localISO(new Date());
+      if (!u) { goLogin(); return; }
+
+      if ($("full_name")) $("full_name").value = u.full_name || "";
+      if ($("email")) $("email").value = u.email || "";
+      if ($("phone")) $("phone").value = u.phone || "";
+
+      // --- URL QUERY PARAMS PRIORITY SYNC ---
+      const q = new URLSearchParams(location.search);
+      const rid = q.get("room");
+
+      // Pull fresh parameters prioritizing URL query params, then shared preferences, then defaults
+      const ci = q.get("check_in") || localStorage.getItem("pc_check_in") || today;
+      const co = q.get("check_out") || localStorage.getItem("pc_check_out") || addDays(ci, 1);
+      let adults = Number(q.get("guests") || localStorage.getItem("pc_guests") || 2);
+      let children = Number(q.get("children") || localStorage.getItem("pc_children") || 0);
+      let childAges = localStorage.getItem("pc_child_ages") ? JSON.parse(localStorage.getItem("pc_child_ages")) : [];
+
+      // Save globally so all pages stay aligned
+      saveStayPrefs(ci, co, adults, children);
+
+      // Re-sync input fields and variables whenever the page is restored from browser history
+      window.addEventListener("pageshow", () => {
+        const freshQ = new URLSearchParams(location.search);
+        const freshPrefs = getStayPrefs();
+        const activeCi = freshQ.get("check_in") || freshPrefs.ci;
+        const activeCo = freshQ.get("check_out") || freshPrefs.co;
+        if ($("check-in")) $("check-in").value = activeCi;
+        if ($("check-out")) $("check-out").value = activeCo;
+      });
+
+      if (!rid) {
+        location.href = "book.html";
+        return;
+      }
+
+      const checkInInput = $("check-in");
+      const checkOutInput = $("check-out");
+
+      if (checkInInput) {
+        checkInInput.min = today;
+        checkInInput.value = ci;
+      }
+      if (checkOutInput) {
+        checkOutInput.min = addDays(ci, 1);
+        checkOutInput.value = co;
+      }
+
+      if (checkInInput && checkOutInput) {
+        checkInInput.onchange = e => {
+          const nextDay = addDays(e.target.value, 1);
+          checkOutInput.min = nextDay;
+          if (checkOutInput.value <= e.target.value) {
+            checkOutInput.value = nextDay;
+          }
+          updateUrlParams();
+        };
+        checkOutInput.onchange = () => {
+          updateUrlParams();
+        };
+      }
+
+      // Drawer Controller Elements & Logic
+      const toggleBtn = $("guest-dropdown-toggle");
+      const drawer = $("guest-popup-drawer");
+      const summaryText = $("guest-summary-text");
+      const adultCountEl = $("adult-count");
+      const childCountEl = $("child-count");
+
+      function updateSummary() {
+        if (summaryText) {
+          summaryText.textContent = `${adults} Adult${adults === 1 ? '' : 's'}, ${children} Child${children === 1 ? '' : 'ren'}`;
+        }
+        const currentCi = checkInInput ? checkInInput.value : ci;
+        const currentCo = checkOutInput ? checkOutInput.value : co;
+        saveStayPrefs(currentCi, currentCo, adults, children);
+      }
+
+      function renderDrawerAges() {
+        const wrapper = $("child-ages-wrapper");
+        const container = $("drawer-ages-container");
+        if (!wrapper || !container) return;
+
+        if (children > 0) {
+          wrapper.style.display = "block";
+          container.innerHTML = Array.from({ length: children }, (_, i) => {
+            const age = childAges[i] !== undefined && childAges[i].age !== undefined ? childAges[i].age : 5;
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label style="color:#cbd5e1; font-size:0.8rem;">Child ${i + 1} Age</label>
+                <select class="drawer-age-select" data-index="${i}" style="padding:.3rem; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #334155;">
+                  ${Array.from({ length: 12 }, (_, a) => `<option value="${a}" ${age === a ? 'selected' : ''}>${a} year${a === 1 ? '' : 's'}</option>`).join('')}
+                </select>
+              </div>
+            `;
+          }).join('');
+
+          container.querySelectorAll(".drawer-age-select").forEach(sel => {
+            sel.onchange = e => {
+              const idx = Number(e.target.getAttribute("data-index"));
+              if (!childAges[idx]) childAges[idx] = {};
+              childAges[idx].age = Number(e.target.value);
+              localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+            };
+          });
+        } else {
+          wrapper.style.display = "none";
+          container.innerHTML = "";
+          localStorage.removeItem("pc_child_ages");
+        }
+      }
+
+      if (toggleBtn && drawer) {
+        toggleBtn.onclick = e => {
+          e.stopPropagation();
+          drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+        };
+        document.addEventListener("click", e => {
+          if (!drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+            drawer.style.display = "none";
+          }
+        });
+      }
+
+      if ($("adult-minus")) $("adult-minus").onclick = () => { if (adults > 1) { adults--; adultCountEl.textContent = adults; updateSummary(); } };
+      if ($("adult-plus")) $("adult-plus").onclick = () => { if (adults < 10) { adults++; adultCountEl.textContent = adults; updateSummary(); } };
+
+      if ($("child-minus")) $("child-minus").onclick = () => {
+        if (children > 0) {
+          children--;
+          childCountEl.textContent = children;
+          childAges.pop();
+          localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+          updateSummary();
+          renderDrawerAges();
+        }
+      };
+      if ($("child-plus")) $("child-plus").onclick = () => {
+        if (children < 6) {
+          children++;
+          childCountEl.textContent = children;
+          childAges.push({ age: 5 });
+          localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+          updateSummary();
+          renderDrawerAges();
+        }
+      };
+
+      if (adultCountEl) adultCountEl.textContent = adults;
+      if (childCountEl) childCountEl.textContent = children;
+      updateSummary();
+      renderDrawerAges();
+
+      const updateUrlParams = () => {
+        const ciVal = checkInInput ? checkInInput.value : ci;
+        const coVal = checkOutInput ? checkOutInput.value : co;
+        const ridVal = rid || "";
+
+        saveStayPrefs(ciVal, coVal, adults, children);
+
+        const newParams = new URLSearchParams(location.search);
+        newParams.set("check_in", ciVal);
+        newParams.set("check_out", coVal);
+        newParams.set("guests", adults);
+        newParams.set("children", children);
+        if (ridVal) newParams.set("room", ridVal);
+
+        history.replaceState(null, "", `${location.pathname}?${newParams.toString()}`);
+      };
+
+      if (checkInInput) checkInInput.addEventListener("change", updateUrlParams);
+      if (checkOutInput) checkOutInput.addEventListener("change", updateUrlParams);
+
+      try {
+        const sr = await apiFetch("/services");
+        const sd = await json(sr);
+        const services = sd.services || [];
+        const container = $("services-container");
+        if (container) {
+          container.innerHTML = services.length ? services.map(s => `
+            <label class="card row between" style="padding:.75rem 1rem; background:var(--s2); cursor:pointer; align-items:center;">
+              <div class="row" style="gap:.75rem; align-items:center;">
+                <input type="checkbox" name="addon" value="${s.id}" style="width:18px;height:18px;">
+                <div>
+                  <strong>${esc(s.name)}</strong>
+                  <div class="muted" style="font-size:.85rem">${esc(s.description)}</div>
+                </div>
+              </div>
+              <span style="font-weight:600; color:var(--primary);">${fmtPKR(s.price)} <small style="font-size:0.75rem">(${s.pricing_unit})</small></span>
+            </label>
+          `).join('') : '<p class="muted">No add-ons currently available.</p>';
+        }
+      } catch {
+        if ($("services-container")) $("services-container").innerHTML = '<p class="muted">Could not load add-on services.</p>';
+      }
+
+      const checkoutForm = $("checkout-form");
+      if (checkoutForm) {
+        checkoutForm.onsubmit = async e => {
+          e.preventDefault();
+          const alertEl = $("alert"); if (alertEl) alertEl.classList.remove("show");
+          $$(".err").forEach(x => x.textContent = "");
+
+          const name = $("full_name")?.value.trim() || "";
+          const email = $("email")?.value.trim() || "";
+          const phone = $("phone")?.value.trim() || "";
+          const finalCheckIn = checkInInput ? checkInInput.value : ci;
+          const finalCheckOut = checkOutInput ? checkOutInput.value : co;
+
+          let ok = true;
+          if (name.length < 2) { const el = $("name-err"); if (el) el.textContent = "Full name is required."; ok = false; }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { const el = $("email-err"); if (el) el.textContent = "Valid email is required."; ok = false; }
+          if (phone.replace(/\D/g, "").length < 11) { const el = $("phone-err"); if (el) el.textContent = "Valid 11-digit phone number is required."; ok = false; }
+          if (!finalCheckIn || !finalCheckOut || finalCheckOut <= finalCheckIn) {
+            if (alertEl) { alertEl.textContent = "Check-out date must be strictly after check-in."; alertEl.classList.add("show"); }
+            ok = false;
+          }
+          if ($("terms") && !$("terms").checked) { const el = $("terms-err"); if (el) el.textContent = "You must agree to the Booking Policy."; ok = false; }
+          if (!ok) return;
+
+          const btn = e.target.querySelector("button[type=submit]");
+          if (btn) { btn.disabled = true; btn.textContent = "Creating hold..."; }
+
+          try {
+            const roomsDict = {};
+            roomsDict[Number(rid)] = Number($("room-qty")?.value || 1);
+
+            const selectedServices = $$("input[name=addon]:checked").map(el => ({
+              service_id: Number(el.value),
+              quantity: 1
+            }));
+
+            // --- GRAB LIVE AGES FROM DRAWER SELECTS ---
+            const childAgeSelects = $$(".drawer-age-select");
+            const childrenDetails = childAgeSelects.map(sel => ({ age: Number(sel.value) || 0 }));
+
+            const holdPayload = {
+              check_in: finalCheckIn,
+              check_out: finalCheckOut,
+              guests: adults,
+              children_details: childrenDetails,
+              rooms: roomsDict,
+              services: selectedServices
+            };
+
+            const holdRes = await apiFetch("/bookings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(holdPayload)
+            });
+            const holdData = await json(holdRes);
+
+            if (!holdRes.ok) {
+              if (holdData.detail && holdData.detail.includes("exceeds total room capacity")) {
+                toast("Your party size exceeds this room's capacity. Please increase your Room Quantity or select a larger suite.", "error");
+                if (alertEl) {
+                  alertEl.textContent = "Your party size exceeds this room's capacity. Please increase your Room Quantity or select a larger suite.";
+                  alertEl.classList.add("show");
+                }
+                if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+                return;
+              } else {
+                throw new Error(errText(holdData, "Failed to create booking hold."));
+              }
+            }
+            toast(`Hold created! Ref: #${holdData.booking_ref}`, "success");
+            setTimeout(() => {
+              location.href = `payment.html?ref=${encodeURIComponent(holdData.booking_ref)}`;
+            }, 600);
+          } catch (err) {
+            if (alertEl) {
+              alertEl.textContent = err.message;
+              alertEl.classList.add("show");
+            }
+            if (btn) { btn.disabled = false; btn.textContent = "Create Hold & Proceed to Pay →"; }
+          }
+        };
+      }
+    });
+  </script>
+
+</body>
+
+</html>

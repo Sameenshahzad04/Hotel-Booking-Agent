@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Secure Payment — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:680px">
+            <p style="margin-bottom:0.5rem;"><a href="bookings.html" class="muted" style="text-decoration:none;">← Back
+                    to My Bookings</a></p>
+            <h1>Secure Payment</h1>
+            <!-- <ol class="steps">
+                <li class="done"><span>✓</span> Choose room</li>
+                <li class="done"><span>✓</span> Guest details</li>
+                <li class="on"><span>3</span> Secure payment</li>
+                <li><span>4</span> Confirmation</li>
+            </ol> -->
+
+            <div id="countdownBanner" class="card"
+                style="background:var(--s2); margin:1.5rem 0; display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem;">
+                <div>
+                    <strong>Hold expires in:</strong>
+                    <div class="muted" style="font-size:0.85rem">Unpaid reservations are automatically released after 2
+                        hours.</div>
+                </div>
+                <div id="timerDisplay" style="font-size:1.5rem; font-weight:700; color:var(--primary);">--:--:--</div>
+            </div>
+
+            <div class="card" id="bookingCard">
+                <div class="skeleton"></div>
+            </div>
+
+            <div id="successCard" class="card" style="display:none; text-align:center; padding:2.5rem;">
+                <div style="font-size:3rem; margin-bottom:1rem;">🎉</div>
+                <h2>Payment Successful!</h2>
+                <p class="muted" style="margin:.5rem 0 1.5rem">Your reservation is officially confirmed. A copy of your
+                    confirmation has been emailed.</p>
+                <div
+                    style="background:var(--s2); padding:1rem; border-radius:8px; display:inline-block; margin-bottom:1.5rem;">
+                    <small class="muted">Official Confirmation Code</small><br>
+                    <strong id="confirmedCode" style="font-size:1.4rem; letter-spacing:2px;">--</strong>
+                </div>
+                <div>
+                    <a href="bookings.html" class="btn primary lg">View in My Bookings →</a>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="common.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(location.search);
+        const bookingRef = urlParams.get("ref");
+        let holdExpiryTime = null, timerInterval = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("");
+            if (!getToken()) { goLogin(); return; }
+            if (!bookingRef) {
+                $("countdownBanner").style.display = "none";
+                $("bookingCard").innerHTML = `<div class="card"><h2>No booking reference provided</h2><p><a href="book.html">Book a stay</a></p></div>`;
+                return;
+            }
+            await loadBooking();
+        });
+
+        async function loadBooking() {
+            try {
+                const res = await apiFetch(`/bookings/${encodeURIComponent(bookingRef)}`);
+                const b = await json(res);
+                if (!res.ok) throw new Error(errText(b, "Booking not found."));
+
+                if (b.status?.is_expired) {
+                    showExpired();
+                    return;
+                }
+                if (b.status?.display_status?.toLowerCase().includes("confirmed") || b.confirmation_code) {
+                    showSuccess(b.confirmation_code);
+                    return;
+                }
+
+                holdExpiryTime = new Date(b.hold_expires_at);
+                startCountdown();
+
+                $("bookingCard").innerHTML = `
+          <div class="row between">
+            <div>
+              <span class="muted">Reference: #${esc(b.booking_ref)}</span>
+              <h2>${esc(b.rooms?.[0]?.room_type || "Luxury Room")}</h2>
+            </div>
+            <span class="badge b-warn">Unpaid Hold</span>
+          </div>
+          <hr style="border-color:var(--line); margin:1rem 0">
+          <p class="muted">${esc(b.guest_name)} · ${b.nights} night${b.nights === 1 ? "" : "s"} (${esc(b.check_in)} → ${esc(b.check_out)})</p>
+          <div class="row between" style="margin-top:1.5rem; align-items:center;">
+            <span class="price">${fmtPKR(b.total_amount)}</span>
+            <button id="payBtn" class="btn primary lg" onclick="processPayment()">Pay Securely Now →</button>
+          </div>`;
+            } catch (err) {
+                $("bookingCard").innerHTML = `<div class="alert show">${esc(err.message)}</div>`;
+            }
+        }
+
+        function startCountdown() {
+            if (timerInterval) clearInterval(timerInterval);
+            function update() {
+                const diff = holdExpiryTime - new Date();
+                if (isNaN(diff) || diff <= 0) {
+                    showExpired();
+                    return;
+                }
+                const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+                $("timerDisplay").textContent = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+            }
+            update();
+            timerInterval = setInterval(update, 1000);
+        }
+
+        function showExpired() {
+            if (timerInterval) clearInterval(timerInterval);
+            $("countdownBanner").style.display = "none";
+            $("bookingCard").innerHTML = `<div class="card center"><h2>Hold Expired</h2><p class="muted">Your 2-hour payment window expired and the room was released.</p><a class="btn primary" href="book.html" style="margin-top:1rem">Book a new stay</a></div>`;
+        }
+
+        async function processPayment() {
+            const btn = $("payBtn"); btn.disabled = true; btn.textContent = "Processing payment...";
+            const idempotencyKey = "tx-" + bookingRef + "-" + Date.now();
+            try {
+                const res = await apiFetch(`/bookings/${encodeURIComponent(bookingRef)}/pay`, {
+                    method: "POST",
+                    headers: { "Idempotency-Key": idempotencyKey },
+                    body: JSON.stringify({ idempotency_key: idempotencyKey })
+                });
+                const d = await json(res);
+                if (res.ok && d.success) {
+                    showSuccess(d.confirmation_code);
+                } else {
+                    toast(errText(d, "Payment processing failed."), "error");
+                    btn.disabled = false; btn.textContent = "Pay Securely Now →";
+                }
+            } catch {
+                toast("Network error during payment submission.", "error");
+                btn.disabled = false; btn.textContent = "Pay Securely Now →";
+            }
+        }
+
+        function showSuccess(code) {
+            if (timerInterval) clearInterval(timerInterval);
+            $("countdownBanner").style.display = "none";
+            $("bookingCard").style.display = "none";
+            $("confirmedCode").textContent = code || "PC-CONF-SUCCESS";
+            $("successCard").style.display = "block";
+        }
+    </script>
+</body>
+
+</html>

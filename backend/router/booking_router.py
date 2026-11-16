@@ -7,6 +7,8 @@ from models.connection import get_db
 from models.db_models import UserAccount, Booking
 from router.auth_router import get_current_user
 from handler.booking_handler import create_booking_hold_handler, cancel_unpaid_booking_handler
+from util.pricing_util import calculate_service_line_total
+
 from handler.payment_handler import process_payment_handler
 from handler.refund_handler import get_refund_quote_handler, execute_refund_and_cancel_handler
 from util.status_util import compute_display_status
@@ -14,6 +16,20 @@ from schema.booking_schema import BookingHoldRequest
 from datetime import date
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
+
+def _service_row(bs, booking):
+    c = service_line(bs, booking)
+    return {
+        "service_id": bs.service_id,
+        "name": bs.service.name,
+        "quantity": c["quantity"],
+        "unit_price": bs.unit_price,
+        "pricing_unit": c["pricing_unit"],
+        "multiplier": c["multiplier"],          # nights, guests, or both
+        "line_total": c["line_total"],
+        "start_date": str(c["start_date"]),
+        "end_date": str(c["end_date"]),
+    }
 
 def validate_not_past(v: date) -> date:
     if v < date.today():
@@ -31,6 +47,18 @@ def create_booking_hold_endpoint(
     req.check_out = validate_not_past(req.check_out)
     
     try:
+        # booking = create_booking_hold_handler(
+        #     db=db,
+        #     user_id=current_user.id,
+        #     special_requests=getattr(req, "special_requests", None),
+        #     check_in=req.check_in,
+        #     check_out=req.check_out,
+        #     guests=req.guests,
+        #     room_allocations=req.rooms,
+        #     selected_services=req.services or [],
+        #     children=getattr(req, "children", 0),
+        #     infants=getattr(req, "infants", 0)
+        # )
         booking = create_booking_hold_handler(
             db=db,
             user_id=current_user.id,
@@ -38,8 +66,9 @@ def create_booking_hold_endpoint(
             check_in=req.check_in,
             check_out=req.check_out,
             guests=req.guests,
+            children_details=req.children_details,  # <--- Pass children_details here
             room_allocations=req.rooms,
-            selected_services=req.services
+            selected_services=req.services or []
         )
         status_info = compute_display_status(booking)
         return {
@@ -71,15 +100,42 @@ def list_user_bookings(
     items = []
     for b in bookings:
         status_info = compute_display_status(b)
+        
+        nights = (b.check_out - b.check_in).days
+
+# Format rooms with breakdown details
+        room_details = [
+            {
+                "name": br.room.room_type.name,
+                "price_per_night": br.price_per_night,
+                "nights": nights,
+                "subtotal": br.price_per_night * nights
+            }
+            for br in b.booking_rooms
+        ]
+
+        # Format services with quantities and prices
+        service_details = [
+            {
+                "name": bs.service.name,
+                "quantity": bs.quantity,
+                "unit_price": bs.unit_price,
+                "pricing_unit": bs.service.pricing_unit,
+                "line_total": bs.quantity * bs.unit_price
+            }
+            for bs in b.booking_services
+        ]
         items.append({
             "booking_ref": b.booking_ref,
             "confirmation_code": b.confirmation_code if b.payment_status == "PAID" else None,
             "guest_name": current_user.full_name,
             "check_in": b.check_in,
             "check_out": b.check_out,
-            "nights": (b.check_out - b.check_in).days,
+            "nights": nights,
             "guests": b.guests,
-            "rooms": [br.room.room_type.name for br in b.booking_rooms],
+            "children": getattr(b, "children", 0),
+            "rooms":room_details,
+            "services": service_details,
             "total_amount": b.total_amount,
             "status": status_info
         })
@@ -120,9 +176,15 @@ def get_single_booking(
         ],
         "services": [
             {
+                "service_id": bs.service_id,
                 "name": bs.service.name,
                 "quantity": bs.quantity,
-                "unit_price": bs.unit_price
+                "unit_price": bs.unit_price,
+               "pricing_unit": getattr(bs, "pricing_unit", None) or bs.service.pricing_unit, # <--- Fix here
+                "multiplier": getattr(bs, "multiplier", 1.0),
+                "line_total": bs.line_total if (getattr(bs, "line_total", 0) and bs.line_total > 0) else round(bs.quantity * bs.unit_price, 2),
+                "start_date": str(bs.start_date) if bs.start_date else str(booking.check_in),
+                "end_date": str(bs.end_date) if bs.end_date else str(booking.check_out)
             }
             for bs in booking.booking_services
         ],

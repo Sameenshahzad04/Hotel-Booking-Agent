@@ -13,6 +13,8 @@ class AddServiceRequest(BaseModel):
     service_id: int
     quantity: int = 1
 
+class UpdateBookingServicesRequest(BaseModel):
+    services: List[AddServiceRequest] = []
 @router.get("")
 def list_available_services(db: Session = Depends(get_db)):
     """Lists all available hotel add-on services (breakfast, transport, etc.)."""
@@ -28,16 +30,19 @@ def list_available_services(db: Session = Depends(get_db)):
         })
     return {"services": items}
 
+
+
 @router.post("/bookings/{ref}/services")
-def add_service_to_booking(
+def update_booking_services(
     ref: str,
-    req: AddServiceRequest,
+    req: UpdateBookingServicesRequest,
     current_user: UserAccount = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Allows adding or updating services on an existing booking 
-    as long as the booking belongs to the user and is still unpaid (PENDING/UNPAID).
+    Synchronizes add-on services for a pending booking in a single atomic operation.
+    Prevents duplicate rows, updates quantities, or removes unchecked services, 
+    and recalculates the total bill.
     """
     booking = db.query(Booking).filter_by(booking_ref=ref).first()
     if not booking:
@@ -52,42 +57,51 @@ def add_service_to_booking(
             detail="Cannot modify services: Booking is already paid or completed/cancelled."
         )
 
-    service = db.query(Service).filter_by(id=req.service_id).first()
-    if not service:
-        raise HTTPException(status_code=404, detail="Service not found.")
+    # Aggregate requested services to eliminate any duplicate entries in the payload
+    requested_map = {}
+    for item in req.services:
+        if item.quantity > 0:
+            requested_map[item.service_id] = requested_map.get(item.service_id, 0) + item.quantity
 
-    if req.quantity <= 0:
-        raise HTTPException(status_code=400, detail="Quantity must be at least 1.")
+    # Fetch currently attached services for this booking
+    existing_services = db.query(BookingService).filter_by(booking_id=booking.id).all()
+    existing_map = {bs.service_id: bs for bs in existing_services}
 
-    # Check if service already attached to booking, update or create new entry
-    existing_bs = (
-        db.query(BookingService)
-        .filter_by(booking_id=booking.id, service_id=service.id)
-        .first()
-    )
+    price_adjustment = 0.0
 
-    # Compute price adjustment
-    unit_p = service.price
-    if existing_bs:
-        # Subtract old cost, add new cost
-        old_cost = existing_bs.quantity * existing_bs.unit_price
-        new_cost = req.quantity * unit_p
-        booking.total_amount = booking.total_amount - old_cost + new_cost
-        
-        existing_bs.quantity = req.quantity
-        existing_bs.unit_price = unit_p
-    else:
-        new_cost = req.quantity * unit_p
-        booking.total_amount += new_cost
-        
-        new_bs = BookingService(
-            booking_id=booking.id,
-            service_id=service.id,
-            quantity=req.quantity,
-            unit_price=unit_p
-        )
-        db.add(new_bs)
+    # 1. Handle updates and removals of existing attached services
+    for s_id, bs in existing_map.items():
+        if s_id in requested_map:
+            new_qty = requested_map[s_id]
+            if bs.quantity != new_qty:
+                old_cost = bs.quantity * bs.unit_price
+                new_cost = new_qty * bs.unit_price
+                price_adjustment += (new_cost - old_cost)
+                bs.quantity = new_qty
+        else:
+            # Service was unchecked/removed by user
+            price_adjustment -= (bs.quantity * bs.unit_price)
+            db.delete(bs)
 
+    # 2. Handle newly added services
+    for s_id, qty in requested_map.items():
+        if s_id not in existing_map:
+            service = db.query(Service).filter_by(id=s_id).first()
+            if not service:
+                raise HTTPException(status_code=404, detail=f"Service ID {s_id} not found.")
+            
+            add_cost = qty * service.price
+            price_adjustment += add_cost
+            
+            new_bs = BookingService(
+                booking_id=booking.id,
+                service_id=service.id,
+                quantity=qty,
+                unit_price=service.price
+            )
+            db.add(new_bs)
+
+    booking.total_amount += price_adjustment
     db.commit()
     db.refresh(booking)
 
@@ -97,6 +111,77 @@ def add_service_to_booking(
         "booking_ref": booking.booking_ref,
         "new_total_amount": booking.total_amount
     }
+# @router.post("/bookings/{ref}/services")
+# def add_service_to_booking(
+#     ref: str,
+#     req: AddServiceRequest,
+#     current_user: UserAccount = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Allows adding or updating services on an existing booking 
+#     as long as the booking belongs to the user and is still unpaid (PENDING/UNPAID).
+#     """
+#     booking = db.query(Booking).filter_by(booking_ref=ref).first()
+#     if not booking:
+#         raise HTTPException(status_code=404, detail="Booking not found.")
+
+#     if booking.user_id != current_user.id:
+#         raise HTTPException(status_code=403, detail="Not authorized to modify this booking.")
+
+#     if booking.payment_status != "UNPAID" or booking.status != "PENDING":
+#         raise HTTPException(
+#             status_code=400, 
+#             detail="Cannot modify services: Booking is already paid or completed/cancelled."
+#         )
+
+#     service = db.query(Service).filter_by(id=req.service_id).first()
+#     if not service:
+#         raise HTTPException(status_code=404, detail="Service not found.")
+
+#     if req.quantity <= 0:
+#         raise HTTPException(status_code=400, detail="Quantity must be at least 1.")
+
+#     # Check if service already attached to booking, update or create new entry
+#     existing_bs = (
+#         db.query(BookingService)
+#         .filter_by(booking_id=booking.id, service_id=service.id)
+#         .first()
+#     )
+
+#     # Compute price adjustment
+#     unit_p = service.price
+#     if existing_bs:
+#         # Subtract old cost, add new cost
+#         old_cost = existing_bs.quantity * existing_bs.unit_price
+#         new_cost = req.quantity * unit_p
+#         booking.total_amount = booking.total_amount - old_cost + new_cost
+        
+#         existing_bs.quantity = req.quantity
+#         existing_bs.unit_price = unit_p
+#     else:
+#         new_cost = req.quantity * unit_p
+#         booking.total_amount += new_cost
+        
+#         new_bs = BookingService(
+#             booking_id=booking.id,
+#             service_id=service.id,
+#             quantity=req.quantity,
+#             unit_price=unit_p
+#         )
+#         db.add(new_bs)
+
+#     db.commit()
+#     db.refresh(booking)
+
+#     return {
+#         "success": True,
+#         "message": "Booking services updated successfully.",
+#         "booking_ref": booking.booking_ref,
+#         "new_total_amount": booking.total_amount
+#     }
+
+
 @router.get("/booking/{booking_ref}")
 def get_services_for_booking(
     booking_ref: str,

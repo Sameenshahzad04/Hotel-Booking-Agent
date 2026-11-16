@@ -85,6 +85,8 @@ class Booking(Base):
     check_in = Column(Date, nullable=False)
     check_out = Column(Date, nullable=False)
     guests = Column(Integer, nullable=False)
+
+    children = Column(Integer, default=0, nullable=False)# <--- Add this column
     status = Column(String, default="PENDING", nullable=False)
     payment_status = Column(String, default="UNPAID", nullable=False)
     hold_expires_at = Column(DateTime(timezone=True), nullable=False)
@@ -122,7 +124,10 @@ class BookingService(Base):
     service_id = Column(Integer, ForeignKey("service.id", ondelete="RESTRICT"), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     unit_price = Column(Float, nullable=False)
+    start_date = Column(Date, nullable=True)  # <--- Service start date
+    end_date = Column(Date, nullable=True)    # <--- Service end date
 
+    
     booking = relationship("Booking", back_populates="booking_services")
     service = relationship("Service")
 
@@ -142,6 +147,19 @@ class Transaction(Base):
 
     user = relationship("UserAccount", back_populates="transactions")
     booking = relationship("Booking", back_populates="transactions")
+
+
+# Add HotelPolicy model at the bottom of db_models.py
+class HotelPolicy(Base):
+    __tablename__ = "hotel_policy"
+
+    key = Column(String, primary_key=True)  # e.g., "child", "pet", "cancellation"
+    data = Column(JSONB, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
 
 
 class Notification(Base):
@@ -168,7 +186,8 @@ class ChatThread(Base):
     user_id = Column(Integer, ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False, index=True)
     booking_id = Column(Integer, ForeignKey("booking.id"), nullable=True)
     title = Column(String, nullable=True)
-    status = Column(String, default="ACTIVE", nullable=False)  # <--- Add this line here    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    status = Column(String, default="ACTIVE", nullable=False)  # <--- Add this line here  
+    # created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("UserAccount", back_populates="chat_threads")

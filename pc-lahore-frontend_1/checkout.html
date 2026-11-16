@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Checkout | Pearl Continental Hotel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="bg-[#0b0f17] text-[#f3f4f6] font-sans">
+
+  <header class="fixed top-0 left-0 right-0 z-50 bg-[#0b0f17]/90 backdrop-blur-md border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
+      <a href="home.html" class="font-serif text-2xl tracking-widest text-[#d4af37] font-bold">PEARL CONTINENTAL</a>
+      <span class="text-xs uppercase tracking-widest text-gray-400">Secure SSL Encrypted Checkout</span>
+    </div>
+  </header>
+
+  <main class="pt-32 pb-20 max-w-5xl mx-auto px-6">
+    <h1 class="font-serif text-4xl font-bold mb-10 text-center">Complete Your Reservation</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+      <!-- Reservation Summary Box -->
+      <div class="bg-[#131b2c] p-8 border border-white/10 h-fit">
+        <h2 class="font-serif text-xl font-bold text-[#d4af37] mb-6 border-b border-white/10 pb-4">Booking Summary</h2>
+        <div id="checkoutSummary" class="space-y-4 text-sm text-gray-300">
+          <!-- Dynamic summary loaded via JS -->
+        </div>
+      </div>
+
+      <!-- Payment Form -->
+      <div class="bg-[#131b2c] p-8 border border-white/10">
+        <h2 class="font-serif text-xl font-bold text-[#d4af37] mb-6 border-b border-white/10 pb-4">Payment Details</h2>
+        <form id="paymentForm" onsubmit="processPayment(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Cardholder Name</label>
+            <input type="text" required
+              class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none"
+              placeholder="Sameen Shahzad">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Card Number</label>
+            <input type="text" required maxlength="19"
+              class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none"
+              placeholder="4242 •••• •••• 4242">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Expiry Date</label>
+              <input type="text" required placeholder="MM/YY"
+                class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">CVV Security</label>
+              <input type="password" required maxlength="4" placeholder="123"
+                class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+            </div>
+          </div>
+          <button type="submit"
+            class="w-full py-4 bg-[#d4af37] text-black font-bold text-xs uppercase tracking-widest hover:bg-[#c5a028] transition-all mt-6">Confirm
+            & Pay Securely</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>

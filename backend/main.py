@@ -9,10 +9,12 @@ from router import (
     room_router,
     service_router,
     booking_router,
-    rag_router,
-    auth_router
+    rag_router, 
+    auth_router,
+    policy_router
 )
 from chatbot import router as chatbot_router
+from fastapi.responses import FileResponse
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(
@@ -38,12 +40,13 @@ app.include_router(booking_router.router)
 app.include_router(rag_router.router)
 app.include_router(chatbot_router.router)
 app.include_router(auth_router.router)
+app.include_router(policy_router.router)
+
+@app.get("/")
+def read_root():
+    return FileResponse(frontend_dir / "home.html")
 
 # Mount Frontend Static Directory (if exists)
 frontend_dir = Path(__file__).resolve().parent.parent / "pc-lahore-frontend"
 if frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-else:
-    @app.get("/")
-    def welcome_message():
-        return {"message": "Welcome to Pearl Continental (PC) Lahore AI HotelAgent API. Visit /docs for Swagger UI."}

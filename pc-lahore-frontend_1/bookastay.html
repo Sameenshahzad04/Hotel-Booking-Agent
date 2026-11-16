@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book a Stay | Pearl Continental Hotel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="bg-[#0b0f17] text-[#f3f4f6] font-sans">
+
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-[#0b0f17]/90 backdrop-blur-md border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
+      <a href="home.html" class="font-serif text-2xl tracking-widest text-[#d4af37] font-bold">PEARL CONTINENTAL</a>
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium tracking-wider">
+        <a href="home.html" class="hover:text-[#d4af37]">HOME</a>
+        <a href="bookastay.html" class="text-[#d4af37]">ACCOMMODATIONS</a>
+        <a href="bookings.html" class="hover:text-[#d4af37]">MY BOOKINGS</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Booking Workflow Container -->
+  <main class="pt-32 pb-20 max-w-7xl mx-auto px-6">
+    <div class="mb-12 text-center">
+      <span class="text-[#d4af37] uppercase tracking-[0.2em] text-xs font-semibold">Exquisite Living Spaces</span>
+      <h1 class="font-serif text-4xl font-bold mt-2">Choose Your Sanctuary</h1>
+    </div>
+
+    <!-- Filter & Search Panel -->
+    <div class="bg-[#131b2c] p-6 border border-white/10 mb-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-[#d4af37] mb-2 font-semibold">Room Type</label>
+        <select id="roomTypeFilter"
+          class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+          <option value="all">All Accommodations</option>
+          <option value="Deluxe">Deluxe Room</option>
+          <option value="Executive">Executive Suite</option>
+          <option value="Presidential">Presidential Suite</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-[#d4af37] mb-2 font-semibold">Max Price / Night
+          ($)</label>
+        <input type="number" id="priceFilter" placeholder="e.g. 500"
+          class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+      </div>
+      <div class="flex items-end">
+        <button onclick="filterRooms()"
+          class="w-full py-3 bg-[#d4af37] text-black font-bold text-xs uppercase tracking-widest hover:bg-[#c5a028] transition-all">Filter
+          Rooms</button>
+      </div>
+    </div>
+
+    <!-- Rooms List Grid -->
+    <div id="roomsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Dynamic Room Cards rendered via JavaScript -->
+    </div>
+  </main>
+
+  <!-- Booking Confirmation Modal / Drawer -->
+  <div id="bookingModal"
+    class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#131b2c] border border-[#d4af37]/40 max-w-lg w-full p-8 relative shadow-2xl">
+      <button onclick="closeBookingModal()"
+        class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+      <h2 class="font-serif text-2xl font-bold text-[#d4af37] mb-6">Confirm Reservation</h2>
+      <form id="reservationForm" onsubmit="submitReservation(event)" class="space-y-4">
+        <input type="hidden" id="selectedRoomId">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Check-in Date</label>
+          <input type="date" id="modalCheckIn" required
+            class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Check-out Date</label>
+          <input type="date" id="modalCheckOut" required
+            class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Special Requests or
+            Preferences</label>
+          <textarea id="modalRequests" rows="3"
+            class="w-full bg-[#0b0f17] border border-white/10 px-4 py-3 text-sm text-white outline-none"
+            placeholder="High floor, airport transfer, etc."></textarea>
+        </div>
+        <button type="submit"
+          class="w-full py-4 bg-[#d4af37] text-black font-bold text-xs uppercase tracking-widest hover:bg-[#c5a028] transition-all mt-4">Proceed
+          to Checkout</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>

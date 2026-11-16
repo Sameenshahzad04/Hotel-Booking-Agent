@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Room Details — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:800px">
+            <p><a href="book.html">← Back to rooms</a></p>
+            <div id="room-content" class="stack" style="margin-top:1.5rem">
+                <div class="skeleton" style="height:350px"></div>
+            </div>
+        </div>
+    </main>
+    <script src="common.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("book");
+            const q = new URLSearchParams(location.search);
+            const rid = q.get("room"), ci = q.get("check_in"), co = q.get("check_out"), guests = q.get("guests") || "2";
+            if (!rid || !ci || !co) { location.href = "book.html"; return; }
+
+            try {
+                const roomRes = await apiFetch("/rooms/availability?check_in=" + ci + "&check_out=" + co + "&guests=" + guests);
+                const roomData = await json(roomRes);
+                const list = roomData.availability || roomData.rooms || [];
+                const room = list.find(x => String(x.id || x.room_id || x.room_type_id) === String(rid)) || list[0];
+
+                if (!room) {
+                    $("room-content").innerHTML = '<div class="alert show">Room details could not be found.</div>';
+                    return;
+                }
+
+                const nights = nightsBetween(ci, co);
+                const baseRate = Number(room.price || room.base_price || 0);
+
+                // Curated image gallery showcasing multiple angles of the room
+                const primaryImg = room.image_url || room.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80";
+                const galleryImages = room.gallery || [
+                    primaryImg,
+                    "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=70",
+                    "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=70",
+                    "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=70"
+                ];
+
+                // Single centered column layout without reservation summary card
+                $("room-content").innerHTML = `
+          <div class="card" style="padding:0; overflow:hidden;">
+            <!-- Main Featured Image -->
+            <img id="main-room-img" src="${esc(galleryImages[0])}" alt="${esc(room.name || room.room_type)}" style="height:420px; width:100%; object-fit:cover; transition: opacity .2s ease;">
+            
+            <!-- Thumbnail Gallery Row -->
+            <div style="display:flex; gap:.75rem; padding:1rem; background:var(--s2); overflow-x:auto;">
+              ${galleryImages.map((img, idx) => `
+                <img src="${esc(img)}" alt="Thumbnail ${idx + 1}" class="room-thumb" data-src="${esc(img)}" style="width:90px; height:65px; object-fit:cover; border-radius:8px; cursor:pointer; border:2px solid ${idx === 0 ? 'var(--gold)' : 'transparent'}; opacity:${idx === 0 ? '1' : '.7'};">
+              `).join("")}
+            </div>
+
+            <div style="padding:2.5rem;">
+              <div class="row between" style="align-items:flex-start;">
+                <div>
+                  <h1>${esc(room.name || room.room_type)}</h1>
+                  <p class="muted" style="margin-top:.5rem">${fmtDate(ci)} → ${fmtDate(co)} · ${nights} night${nights === 1 ? "" : "s"} · ${guests} guest${guests === "1" ? "" : "s"}</p>
+                </div>
+                <div style="text-align:right;">
+                  <span class="price" style="font-size:1.6rem">${fmtPKR(baseRate * nights)}</span>
+                  <div class="muted" style="font-size:0.8rem">Total for ${nights} night${nights === 1 ? "" : "s"}</div>
+                </div>
+              </div>
+
+              <p style="margin-top:1.25rem; font-size:1.05rem; line-height:1.7;">${esc(room.description || "Enjoy luxurious amenities, panoramic views, and world-class hospitality at Pearl Continental Lahore.")}</p>
+              
+              <h3 style="margin-top:2rem;">Room Amenities</h3>
+              <div class="chips" style="margin-top:.75rem">${(room.amenities || ["King Bed", "High-Speed Wi-Fi", "Marble Bathroom", "Room Service", "City View", "Air Conditioning"]).map(a => `<span class="chip" style="padding:.4rem 1rem">${esc(a)}</span>`).join("")}</div>
+
+              <hr style="border-color:var(--line); margin:2.5rem 0;">
+
+              <div class="row between" style="align-items:center;">
+                <a class="btn" href="book.html">← Choose different room</a>
+                <button class="btn primary lg" id="proceed-checkout">Proceed to book →</button>
+              </div>
+            </div>
+          </div>`;
+
+                // Interactive gallery thumbnail switcher
+                const mainImg = $("main-room-img");
+                document.querySelectorAll(".room-thumb").forEach(thumb => {
+                    thumb.onclick = () => {
+                        mainImg.style.opacity = "0.4";
+                        mainImg.src = thumb.dataset.src;
+                        setTimeout(() => mainImg.style.opacity = "1", 150);
+
+                        document.querySelectorAll(".room-thumb").forEach(t => {
+                            t.style.border = "2px solid transparent";
+                            t.style.opacity = ".7";
+                        });
+                        thumb.style.border = "2px solid var(--gold)";
+                        thumb.style.opacity = "1";
+                    };
+                });
+
+                // Proceed to checkout button action
+                $("proceed-checkout").onclick = () => {
+                    const checkoutUrl = `checkout.html?room=${encodeURIComponent(rid)}&check_in=${ci}&check_out=${co}&guests=${guests}`;
+
+                    const user = getUser();
+                    if (!user) {
+                        toast("Please sign in or register to complete your reservation.", "info");
+                        setTimeout(() => { location.href = "login.html?next=" + encodeURIComponent(checkoutUrl); }, 600);
+                    } else {
+                        location.href = checkoutUrl;
+                    }
+                };
+
+            } catch (err) {
+                $("room-content").innerHTML = `<div class="alert show">Failed to load room details: ${esc(err.message)}</div>`;
+            }
+        });
+    </script>
+</body>
+
+</html>

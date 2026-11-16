@@ -59,6 +59,7 @@ def update_completed_stays_handler(db: Session) -> int:
     if count > 0:
         db.commit()
     return count
+
 def query_live_availability(
     db: Session,
     check_in: date,
@@ -76,35 +77,105 @@ def query_live_availability(
     update_completed_stays_handler(db)
     # 2. Subquery: Find room_ids that are occupied during the requested dates
     # Date overlap logic: (check_in < requested_check_out) AND (check_out > requested_check_in)
+    # occupied_rooms_subquery = (
+    #     db.query(BookingRoom.room_id)
+    #     .filter(
+    #         BookingRoom.blocks_inventory.is_(True),
+    #         BookingRoom.check_in < check_out,
+    #         BookingRoom.check_out > check_in
+    #     )
+    #     .distinct()
+    #     .subquery()
+    # # )
+    # occupied_rooms_subquery = (
+    #     db.query(BookingRoom.room_id.label("room_id"))
+    #     .filter(
+    #         BookingRoom.blocks_inventory.is_(True),
+    #         BookingRoom.room_id.isnot(None),
+    #         BookingRoom.check_in < check_out,
+    #         BookingRoom.check_out > check_in
+    #     )
+    #     .distinct()
+    #     .subquery()
+    # )
+    # # 3. Pure ORM query: Join RoomType with active Rooms, outerjoin occupied rooms, and aggregate
+    # results = (
+    #     db.query(
+    #         RoomType,
+    #         func.count(Room.id).label("total_rooms"),
+    #         func.count(occupied_rooms_subquery.c.room_id).label("occupied_rooms")
+    #     )
+    #     .join(Room, (Room.room_type_id == RoomType.id) & (Room.is_active.is_(True)))
+    #     .outerjoin(occupied_rooms_subquery, Room.id == occupied_rooms_subquery.c.room_id)
+    #     .group_by(RoomType.id,
+    #         RoomType.name,
+    #         RoomType.description,
+    #         RoomType.base_price,
+    #         RoomType.max_guests,
+    #         RoomType.bed_type,
+    #         RoomType.amenities
+    #     )
+    #     .order_by(RoomType.base_price.asc())
+    #     .all()
+    # )
+
+    # # 4. Assemble the result list with availability flags
+    # availability_list = []
+    # for rt, total_count, occupied_count in results:
+    #     # avail_count = max(0, total_count - occupied_count)
+    #     avail_count = max(0, int(total_count or 0) - int(occupied_count or 0))
+    #     fits_guests = (rt.max_guests or 0) >= guests
+    #     availability_list.append({
+    #         "room_type_id": rt.id,
+    #         "name": rt.name,
+    #         "description": rt.description,
+    #         "base_price": float(rt.base_price),
+    #         "max_guests": rt.max_guests,
+    #         "bed_type": rt.bed_type,
+    #         "amenities": rt.amenities or [],
+    #         "available_rooms": avail_count,
+    #         "is_available": avail_count > 0 and rt.max_guests >= min(guests, rt.max_guests)
+    #     })
+
+    # return availability_list
+
     occupied_rooms_subquery = (
-        db.query(BookingRoom.room_id)
+        db.query(BookingRoom.room_id.label("room_id"))
         .filter(
             BookingRoom.blocks_inventory.is_(True),
+            BookingRoom.room_id.isnot(None),
             BookingRoom.check_in < check_out,
-            BookingRoom.check_out > check_in
+            BookingRoom.check_out > check_in,
         )
         .distinct()
         .subquery()
     )
 
-    # 3. Pure ORM query: Join RoomType with active Rooms, outerjoin occupied rooms, and aggregate
     results = (
         db.query(
             RoomType,
-            func.count(Room.id).label("total_rooms"),
-            func.count(occupied_rooms_subquery.c.room_id).label("occupied_rooms")
+            func.count(func.distinct(Room.id)).label("total_rooms"),
+            func.count(func.distinct(occupied_rooms_subquery.c.room_id)).label("occupied_rooms"),
         )
         .join(Room, (Room.room_type_id == RoomType.id) & (Room.is_active.is_(True)))
         .outerjoin(occupied_rooms_subquery, Room.id == occupied_rooms_subquery.c.room_id)
-        .group_by(RoomType.id)
+        .group_by(
+            RoomType.id,
+            RoomType.name,
+            RoomType.description,
+            RoomType.base_price,
+            RoomType.max_guests,
+            RoomType.bed_type,
+            RoomType.amenities,
+        )
         .order_by(RoomType.base_price.asc())
         .all()
     )
 
-    # 4. Assemble the result list with availability flags
     availability_list = []
     for rt, total_count, occupied_count in results:
-        avail_count = max(0, total_count - occupied_count)
+        avail_count = max(0, int(total_count or 0) - int(occupied_count or 0))
+        fits_guests = (rt.max_guests or 0) >= guests
         availability_list.append({
             "room_type_id": rt.id,
             "name": rt.name,
@@ -114,8 +185,7 @@ def query_live_availability(
             "bed_type": rt.bed_type,
             "amenities": rt.amenities or [],
             "available_rooms": avail_count,
-            "is_available": avail_count > 0 and rt.max_guests >= min(guests, rt.max_guests)
+            "is_available": avail_count > 0 and fits_guests,
         })
 
     return availability_list
-

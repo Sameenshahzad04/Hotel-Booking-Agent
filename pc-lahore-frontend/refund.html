@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Refund & Cancellation Review — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:680px">
+            <p style="margin-bottom:0.5rem;"><a href="bookings.html" class="muted" style="text-decoration:none;">← Back
+                    to My Bookings</a></p>
+            <h1 id="pageTitle">Refund Review</h1>
+            <p class="muted" id="pageDesc">Calculating refund eligibility based on hotel cancellation policy...</p>
+
+            <div class="alert" id="alert" role="alert"></div>
+
+            <div class="card" style="margin-top:1.5rem" id="formCard">
+                <div id="refundBody">
+                    <div class="skeleton"></div>
+                </div>
+
+                <div id="actionContainer" style="margin-top:1.5rem; display:none;">
+                    <div class="field" style="margin-bottom:1.5rem">
+                        <label for="confCode">Enter Payment Confirmation Code (HB-XXXXXX):</label>
+                        <input id="confCode" placeholder="e.g. HB-109248" required style="margin-top:.4rem">
+                        <p class="err" id="code-err"></p>
+                    </div>
+                    <div class="row between" style="border-top:1px solid var(--line); padding-top:1.25rem;">
+                        <a href="bookings.html" class="btn">Cancel</a>
+                        <button class="btn danger lg" id="executeRefundBtn">Confirm Refund &amp; Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Refund Success View Card -->
+            <div class="card" id="successCard"
+                style="display:none; text-align:center; padding:2.5rem; margin-top:1.5rem;">
+                <div style="font-size:3rem; margin-bottom:1rem;">💸</div>
+                <h2>Refund Processed Successfully!</h2>
+                <p class="muted" style="margin:.5rem 0 1.5rem">Your reservation has been cancelled and your refund has
+                    been successfully initiated.</p>
+                <div
+                    style="background:var(--s2); padding:1rem; border-radius:8px; display:inline-block; margin-bottom:1.5rem;">
+                    <small class="muted">Refund Amount Issued</small><br>
+                    <strong id="refundedAmountDisplay" style="font-size:1.4rem; color:var(--gold);">--</strong>
+                </div>
+                <div>
+                    <a href="bookings.html" class="btn primary lg">View in My Bookings →</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="common.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(location.search);
+        const bookingRef = urlParams.get("ref");
+        let refundQuoteData = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("");
+            if (!getToken()) { goLogin(); return; }
+            if (!bookingRef) {
+                location.href = "bookings.html";
+                return;
+            }
+            await loadRefundQuote();
+        });
+
+        async function loadRefundQuote() {
+            const alertEl = $("alert");
+            alertEl.classList.remove("show");
+
+            try {
+                const res = await apiFetch(`/bookings/${encodeURIComponent(bookingRef)}/refund-quote`);
+                const q = await json(res);
+                if (!res.ok) throw new Error(errText(q, "Unable to get refund quote."));
+
+                refundQuoteData = q;
+                $("pageTitle").textContent = `Refund Quote (#${bookingRef})`;
+                $("pageDesc").textContent = q.reason || "Standard cancellation policy applies.";
+
+                $("refundBody").innerHTML = `
+                    <div style="background:var(--s2); padding:1.25rem; border-radius:8px; display:flex; flex-direction:column; gap:.75rem;">
+                        <div class="row between"><span>Refund Percentage:</span><strong>${q.percent}%</strong></div>
+                        <div class="row between"><span>Total Amount Paid:</span><strong>${fmtPKR(q.total_amount)}</strong></div>
+                        <hr style="border-color:var(--line)">
+                        <div class="row between"><span>Refund Payout:</span><strong class="price">${fmtPKR(q.refund_amount)}</strong></div>
+                    </div>`;
+
+                if (q.eligible) {
+                    $("actionContainer").style.display = "block";
+                } else {
+                    $("actionContainer").style.display = "none";
+                    alertEl.textContent = q.reason || "This booking is not eligible for a refund.";
+                    alertEl.classList.add("show");
+                }
+            } catch (err) {
+                alertEl.textContent = err.message;
+                alertEl.classList.add("show");
+                $("refundBody").innerHTML = `<p class="muted">Could not load refund information.</p>`;
+            }
+        }
+
+        document.getElementById("executeRefundBtn").onclick = async () => {
+            const alertEl = $("alert");
+            alertEl.classList.remove("show");
+            const codeInput = $("confCode");
+            const code = codeInput ? codeInput.value.trim() : "";
+
+            if (!code) {
+                $("code-err").textContent = "Payment confirmation code is required.";
+                return;
+            }
+            $("code-err").textContent = "";
+
+            if (!await confirmDialog("This will cancel your booking and process the refund payout. Proceed?", "Confirm Refund", true)) return;
+
+            const btn = $("executeRefundBtn");
+            btn.disabled = true;
+            btn.textContent = "Processing refund...";
+
+            try {
+                const res = await apiFetch(`/bookings/${encodeURIComponent(bookingRef)}/refund-and-cancel?confirmation_code=` + encodeURIComponent(code), {
+                    method: "POST"
+                });
+                const d = await json(res);
+                if (!res.ok) throw new Error(errText(d, "Refund execution failed. Please check your confirmation code."));
+
+                // Show success view directly on page instead of abrupt redirect
+                $("formCard").style.display = "none";
+                $("pageTitle").textContent = "Refund Completed";
+                $("pageDesc").textContent = "Your transaction has been finalized.";
+                $("refundedAmountDisplay").textContent = fmtPKR(refundQuoteData ? refundQuoteData.refund_amount : 0);
+                $("successCard").style.display = "block";
+                toast("Refund processed successfully!", "success");
+
+            } catch (err) {
+                alertEl.textContent = err.message;
+                alertEl.classList.add("show");
+                btn.disabled = false;
+                btn.textContent = "Confirm Refund & Cancel";
+            }
+        };
+    </script>
+</body>
+
+</html>
+```[cite: 3]

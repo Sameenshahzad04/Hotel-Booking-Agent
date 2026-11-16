@@ -1,330 +1,1045 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Book a Stay | Pearl Continental Lahore</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body data-page="book">
-<main>
-  <div class="page-banner"><div class="container">
-    <div class="breadcrumb"><a href="index.html">Home</a> › Book a Stay</div>
-    <h1>Book your stay</h1>
-    <p>Five quick steps. Your room is held for 2 hours once you reserve.</p>
-  </div></div>
+<!doctype html>
 
-  <div class="container" style="padding-top:1.75rem">
-    <ol class="stepper" id="stepper" aria-label="Booking progress"></ol>
-    <div class="layout-2">
-      <section class="card" id="panel" aria-live="polite"></section>
-      <aside class="card summary" id="summary" aria-label="Booking summary"></aside>
-    </div>
-  </div>
-</main>
+<template>
 
-<script src="app.js"></script>
-<script src="chat.js"></script>
-<script>
-(() => {
-  const { $, $$, api, esc, money, fmtDate, todayISO, addDays, diffDays, qs, toast, dialog, withLoading, estimate, unitLabel, pay, Auth, uid } = App;
-  App.setTitle('Book a Stay');
 
-  const STEPS = ['Stay', 'Rooms', 'Extras', 'Review', 'Payment'];
-  const KEY = 'pcl_draft';
+    <html lang="en">
 
-  /* ----- State ----- */
-  const blank = () => ({ check_in: todayISO(), check_out: addDays(todayISO(), 1), guests: 2, rooms: {}, services: {}, ref: null, idem: null });
-  let draft = (() => { try { return Object.assign(blank(), JSON.parse(sessionStorage.getItem(KEY)) || {}); } catch { return blank(); } })();
-  const save = () => sessionStorage.setItem(KEY, JSON.stringify(draft));
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Book a Stay — Pearl Continental</title>
+        <link rel="stylesheet" href="style.css">
+        <link
+            href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+            rel="stylesheet">
+    </head>
 
-  let step = 1, types = [], services = [], booking = null, countdownTimer = null, confirmed = null, loadingTypes = false;
+    <body>
+        <main id="main" class="section">
+            <div class="wrap">
+                <h1>Book your stay</h1>
+                <ol class="steps">
+                    <li class="on"><span>1</span> Choose room &amp; check dates</li>
+                    <li><span>2</span> Guest details &amp; add-ons</li>
+                    <li><span>3</span> Secure payment</li>
+                    <li><span>4</span> Confirmation</li>
+                </ol>
+                <form class="search" id="filter-form" style="margin-top:1.5rem; margin-bottom:2rem">
+                    <div class="field"><label for="check-in">Check-in</label><input type="date" id="check-in" required>
+                    </div>
+                    <div class="field"><label for="check-out">Check-out</label><input type="date" id="check-out"
+                            required>
+                    </div>
+                    <div class="field"><label for="guests">Guests</label><select id="guests">
+                            <option value="1">1 guest</option>
+                            <option value="2" selected>2 guests</option>
+                            <option value="3">3 guests</option>
+                            <option value="4">4 guests</option>
+                        </select></div>
+                    <button class="btn primary" type="submit">Update availability</button>
+                </form>
+                <div class="alert" id="alert" role="alert"></div>
+                <div class="grid" id="rooms" style="margin-top:1.5rem">
+                    <div class="skeleton"></div>
+                    <div class="skeleton"></div>
+                    <div class="skeleton"></div>
+                </div>
+            </div>
+        </main>
+        <script src="common.js"></script>
+        <!-- <script>
+        let rooms = [];
+        document.addEventListener("DOMContentLoaded", () => {
+            renderHeader("book");
+            //Date calender logic
+            const q = new URLSearchParams(location.search);
+            const today = localISO(new Date());
 
-  // Deep-link from rooms.html
-  if (qs('check_in')) {
-    draft = Object.assign(blank(), { check_in: qs('check_in'), check_out: qs('check_out') || addDays(qs('check_in'), 1), guests: Number(qs('guests')) || 2 });
-    if (qs('room')) draft.rooms = { [qs('room')]: 1 };
-    save();
-    history.replaceState(null, '', 'book.html');
-    if (qs('room')) step = 2;
-  }
-  if (draft.check_in < todayISO()) { draft.check_in = todayISO(); draft.check_out = addDays(todayISO(), 1); }
+            // Strictly check URL parameters first, otherwise fallback to today and tomorrow
+            const ci = q.get("check_in") || today;
+            const co = q.get("check_out") || addDays(ci, 1);
 
-  const locked = () => !!draft.ref;                 // after the hold is created, steps 1–4 are read-only
-  const totalCapacity = () => Object.entries(draft.rooms).reduce((n, [id, q]) => { const t = types.find((x) => String(x.room_type_id) === id); return n + (t ? t.max_guests * q : 0); }, 0);
-  const totalRooms = () => Object.values(draft.rooms).reduce((a, b) => a + b, 0);
+            $("check-in").min = today;
+            $("check-in").value = ci;
 
-  /* ----- Stepper ----- */
-  function renderStepper() {
-    $('#stepper').innerHTML = STEPS.map((s, i) => {
-      const n = i + 1;
-      const cls = confirmed ? 'done' : n === step ? 'active' : n < step ? 'done' : '';
-      const click = !locked() && n < step ? 'clickable' : '';
-      return `<li class="${cls} ${click}" data-step="${n}" ${n === step ? 'aria-current="step"' : ''}><span class="num">${cls === 'done' ? '✓' : n}</span>${s}</li>`;
-    }).join('');
-    $$('#stepper li.clickable').forEach((li) => li.onclick = () => go(Number(li.dataset.step)));
-  }
+            $("check-out").min = addDays(ci, 1);
+            $("check-out").value = co;
 
-  /* ----- Summary sidebar ----- */
-  function renderSummary() {
-    if (booking && step >= 5) {
-      $('#summary').innerHTML = `<h3 class="card-title">Your reservation</h3>
-        <div class="summary-line"><span class="muted">Reference</span><strong>${esc(booking.booking_ref)}</strong></div>
-        <div class="summary-line"><span class="muted">Check-in</span><span>${fmtDate(booking.check_in)}</span></div>
-        <div class="summary-line"><span class="muted">Check-out</span><span>${fmtDate(booking.check_out)}</span></div>
-        <div class="summary-line"><span class="muted">Guests</span><span>${booking.guests}</span></div>
-        ${booking.rooms.map((r) => `<div class="summary-line"><span>${esc(r.room_type)}</span><span>${money(r.price_per_night)}/night</span></div>`).join('')}
-        ${booking.services.map((s) => `<div class="summary-line"><span>${esc(s.name)} × ${s.quantity}</span><span>${money(s.unit_price * s.quantity)}</span></div>`).join('')}
-        <hr class="divider"><div class="summary-total"><span>Total</span><span>${money(booking.total_amount)}</span></div>`;
-      return;
-    }
-    const e = estimate(draft, types, services);
-    $('#summary').innerHTML = `<h3 class="card-title">Booking summary</h3>
-      <div class="summary-line"><span class="muted">Check-in</span><span>${draft.check_in ? fmtDate(draft.check_in) : '—'}</span></div>
-      <div class="summary-line"><span class="muted">Check-out</span><span>${draft.check_out ? fmtDate(draft.check_out) : '—'}</span></div>
-      <div class="summary-line"><span class="muted">Nights · Guests</span><span>${e.nights} · ${draft.guests}</span></div>
-      <hr class="divider">
-      ${e.rooms.length ? e.rooms.map((r) => `<div class="summary-line"><span>${esc(r.name)} × ${r.qty}</span><span>${money(r.sub)}</span></div>`).join('') : '<p class="muted small">No rooms selected yet.</p>'}
-      ${e.extras.map((x) => `<div class="summary-line"><span>${esc(x.name)} × ${x.qty}</span><span>${money(x.sub)}</span></div>`).join('')}
-      <hr class="divider"><div class="summary-total"><span>Estimated total</span><span>${money(e.total)}</span></div>
-      <p class="muted small" style="margin-top:.6rem">Final price is confirmed when you reserve.</p>`;
-  }
+            $("guests").value = q.get("guests") || "2";
 
-  /* ----- Navigation ----- */
-  async function go(n) {
-    step = n;
-    if (n === 2) await loadTypes();
-    if (n === 3 && !services.length) await loadServices();
-    if (n >= 3 && !types.length) await loadTypes();
-    if (n === 4 && !services.length) await loadServices();
-    render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  async function loadTypes() {
-    loadingTypes = true; render();
-    try {
-      const d = await api(`/rooms/availability?check_in=${draft.check_in}&check_out=${draft.check_out}&guests=${draft.guests}`, { auth: false });
-      types = d.availability;
-      // clamp selection to what is still available
-      for (const id of Object.keys(draft.rooms)) {
-        const t = types.find((x) => String(x.room_type_id) === id);
-        if (!t || t.available_rooms < 1) delete draft.rooms[id];
-        else draft.rooms[id] = Math.min(draft.rooms[id], t.available_rooms);
-      }
-      save();
-    } catch (e) { toast(e.message, 'error'); }
-    loadingTypes = false;
-  }
-  async function loadServices() {
-    try { services = (await api('/services', { auth: false })).services; } catch (e) { toast(e.message, 'error'); }
-  }
-
-  /* ----- Step panels ----- */
-  function panelStay() {
-    return `<h2 class="card-title">When are you staying?</h2>
-      <form id="f-stay" novalidate>
-        <div class="form-grid">
-          <div class="field"><label for="ci">Check-in</label><input class="input" type="date" id="ci" min="${todayISO()}" value="${draft.check_in}" required></div>
-          <div class="field"><label for="co">Check-out</label><input class="input" type="date" id="co" min="${addDays(draft.check_in, 1)}" value="${draft.check_out}" required></div>
-        </div>
-        <div class="field"><label>Guests</label>
-          <div class="qty" id="guest-qty"><button type="button" data-d="-1" aria-label="Fewer guests">−</button><span id="gcount">${draft.guests}</span><button type="button" data-d="1" aria-label="More guests">+</button></div>
-        </div>
-        <div id="stay-err" class="alert alert-error hidden" role="alert"></div>
-        <div class="row between" style="margin-top:1.2rem"><span class="muted small">Check-in from 14:00 · Check-out until 12:00</span><button class="btn btn-primary" type="submit">Choose rooms →</button></div>
-      </form>`;
-  }
-  function wireStay() {
-    const ci = $('#ci'), co = $('#co');
-    ci.onchange = () => { draft.check_in = ci.value; co.min = addDays(ci.value, 1); if (diffDays(ci.value, co.value) < 1) { co.value = addDays(ci.value, 1); } draft.check_out = co.value; save(); renderSummary(); };
-    co.onchange = () => { draft.check_out = co.value; save(); renderSummary(); };
-    $$('#guest-qty button').forEach((b) => b.onclick = () => { draft.guests = Math.min(20, Math.max(1, draft.guests + Number(b.dataset.d))); $('#gcount').textContent = draft.guests; save(); renderSummary(); });
-    $('#f-stay').onsubmit = (e) => {
-      e.preventDefault();
-      const err = $('#stay-err');
-      if (!ci.value || !co.value) { err.textContent = 'Please choose both dates.'; err.classList.remove('hidden'); return; }
-      if (ci.value < todayISO()) { err.textContent = 'Check-in cannot be in the past.'; err.classList.remove('hidden'); return; }
-      if (diffDays(ci.value, co.value) < 1) { err.textContent = 'Check-out must be at least one day after check-in.'; err.classList.remove('hidden'); return; }
-      go(2);
-    };
-  }
-
-  function panelRooms() {
-    if (loadingTypes) return '<h2 class="card-title">Choose your rooms</h2><div class="skeleton" style="height:90px;margin-bottom:.75rem"></div><div class="skeleton" style="height:90px"></div>';
-    const cap = totalCapacity(), rooms = totalRooms();
-    const capOk = rooms > 0 && cap >= draft.guests;
-    const list = types.map((t) => {
-      const q = draft.rooms[t.room_type_id] || 0;
-      const none = t.available_rooms < 1;
-      return `<div class="pick-card ${q ? 'selected' : ''} ${none ? 'disabled' : ''}">
-        <div><strong>${esc(t.name)}</strong><div class="muted small">Sleeps ${t.max_guests} · ${esc(t.bed_type)} · ${none ? 'Sold out' : t.available_rooms + ' available'}</div>
-          <div style="margin-top:.3rem"><strong>${money(t.base_price)}</strong> <span class="muted small">per night</span></div></div>
-        <div class="qty" data-id="${t.room_type_id}"><button type="button" data-d="-1" ${q < 1 ? 'disabled' : ''} aria-label="Remove one ${esc(t.name)}">−</button><span>${q}</span><button type="button" data-d="1" ${q >= t.available_rooms ? 'disabled' : ''} aria-label="Add one ${esc(t.name)}">+</button></div>
-      </div>`;
-    }).join('') || '<div class="alert alert-info">No rooms are available for these dates. Please go back and change your dates.</div>';
-    return `<h2 class="card-title">Choose your rooms</h2>
-      <p class="muted small" style="margin-bottom:1rem">${draft.guests} guest${draft.guests > 1 ? 's' : ''} · ${diffDays(draft.check_in, draft.check_out)} night(s). Select one or more rooms.</p>
-      ${list}
-      <div class="alert ${capOk ? 'alert-success' : rooms ? 'alert-warn' : 'alert-info'}" style="margin-top:1rem">${rooms === 0 ? 'Select at least one room to continue.' : capOk ? `Your selection fits ${cap} guests.` : `Your selection fits ${cap} guest(s) but you have ${draft.guests}. Add another room.`}</div>
-      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-primary" id="next" ${capOk ? '' : 'disabled'}>Choose extras →</button></div>`;
-  }
-  function wireRooms() {
-    $$('.pick-card .qty').forEach((el) => $$('button', el).forEach((b) => b.onclick = () => {
-      const id = el.dataset.id, t = types.find((x) => String(x.room_type_id) === id);
-      const q = Math.min(t.available_rooms, Math.max(0, (draft.rooms[id] || 0) + Number(b.dataset.d)));
-      if (q) draft.rooms[id] = q; else delete draft.rooms[id];
-      save(); render();
-    }));
-    $('#back').onclick = () => go(1); $('#next').onclick = () => go(3);
-  }
-
-  function panelExtras() {
-    const nights = diffDays(draft.check_in, draft.check_out);
-    const list = services.map((s) => {
-      const q = draft.services[s.id] || 0;
-      let hint = '';
-      if (s.pricing_unit === 'per_night') hint = ` · ${money(s.price * nights)} for ${nights} night(s)`;
-      if (s.pricing_unit === 'per_guest') hint = ` · ${money(s.price * draft.guests)} for ${draft.guests} guest(s)`;
-      return `<div class="pick-card ${q ? 'selected' : ''}">
-        <div><strong>${esc(s.name)}</strong><div class="muted small">${esc(s.description || '')}</div>
-          <div style="margin-top:.3rem"><strong>${money(s.price)}</strong> <span class="muted small">${esc(unitLabel(s.pricing_unit))}${hint}</span></div></div>
-        <div class="qty" data-id="${s.id}"><button type="button" data-d="-1" ${q < 1 ? 'disabled' : ''} aria-label="Remove one ${esc(s.name)}">−</button><span>${q}</span><button type="button" data-d="1" ${q >= 10 ? 'disabled' : ''} aria-label="Add one ${esc(s.name)}">+</button></div>
-      </div>`;
-    }).join('') || '<p class="muted">No add-on services available.</p>';
-    return `<h2 class="card-title">Enhance your stay <span class="muted small" style="font-weight:400">(optional)</span></h2>${list}
-      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-primary" id="next">Review booking →</button></div>`;
-  }
-  function wireExtras() {
-    $$('.pick-card .qty').forEach((el) => $$('button', el).forEach((b) => b.onclick = () => {
-      const id = el.dataset.id; const q = Math.min(10, Math.max(0, (draft.services[id] || 0) + Number(b.dataset.d)));
-      if (q) draft.services[id] = q; else delete draft.services[id];
-      save(); render();
-    }));
-    $('#back').onclick = () => go(2); $('#next').onclick = () => go(4);
-  }
-
-  function panelReview() {
-    const e = estimate(draft, types, services);
-    const needLogin = !Auth.loggedIn;
-    return `<h2 class="card-title">Review your reservation</h2>
-      <dl class="kv" style="margin-bottom:1rem">
-        <dt>Check-in</dt><dd>${fmtDate(draft.check_in)} (from 14:00)</dd>
-        <dt>Check-out</dt><dd>${fmtDate(draft.check_out)} (until 12:00)</dd>
-        <dt>Duration</dt><dd>${e.nights} night${e.nights > 1 ? 's' : ''}</dd>
-        <dt>Guests</dt><dd>${draft.guests}</dd>
-        <dt>Rooms</dt><dd>${e.rooms.map((r) => `${esc(r.name)} × ${r.qty}`).join('<br>')}</dd>
-        <dt>Extras</dt><dd>${e.extras.length ? e.extras.map((x) => `${esc(x.name)} × ${x.qty}`).join('<br>') : 'None'}</dd>
-        <dt>Estimated total</dt><dd><strong>${money(e.total)}</strong></dd>
-      </dl>
-      <div class="alert alert-info">Reserving holds your room for <strong>2 hours</strong>. You can add extras, pay, or release the hold afterwards.</div>
-      ${needLogin ? `<div class="alert alert-warn" style="margin-top:1rem"><div><strong>Sign in to continue.</strong> Your selections are saved and will be waiting for you.
-        <div class="row" style="margin-top:.6rem"><a class="btn btn-primary btn-sm" href="login.html?next=book.html">Sign in</a><a class="btn btn-outline btn-sm" href="register.html?next=book.html">Create account</a></div></div></div>` : ''}
-      <label class="checkbox" style="margin-top:1rem"><input type="checkbox" id="agree"><span>I understand the cancellation policy: full refund 7+ days before check-in, 50% between 2 and 7 days, none within 48 hours.</span></label>
-      <div id="rev-err" class="alert alert-error hidden" role="alert" style="margin-top:1rem"></div>
-      <div class="row between" style="margin-top:1.2rem"><button class="btn btn-ghost" id="back">← Back</button><button class="btn btn-gold btn-lg" id="reserve" disabled>Reserve &amp; continue to payment</button></div>`;
-  }
-  function wireReview() {
-    const agree = $('#agree'), btn = $('#reserve');
-    const sync = () => btn.disabled = !(agree.checked && Auth.loggedIn);
-    agree.onchange = sync; sync();
-    $('#back').onclick = () => go(3);
-    btn.onclick = async () => {
-      const err = $('#rev-err'); err.classList.add('hidden');
-      try {
-        await withLoading(btn, async () => {
-          const body = {
-            check_in: draft.check_in, check_out: draft.check_out, guests: draft.guests, rooms: draft.rooms,
-            services: Object.entries(draft.services).map(([service_id, quantity]) => ({ service_id: Number(service_id), quantity }))
-          };
-          const r = await api('/bookings', { method: 'POST', body });
-          draft.ref = r.booking_ref; draft.idem = uid('tx'); save();
-          await loadBooking();
+            $("check-in").onchange = e => {
+                const selectedCheckIn = e.target.value;
+                const nextDay = addDays(selectedCheckIn, 1);
+                $("check-out").min = nextDay;
+                if ($("check-out").value <= selectedCheckIn) {
+                    $("check-out").value = nextDay;
+                }
+            };
+            // const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+            $("filter-form").onsubmit = e => {
+                e.preventDefault();
+                const newUrl = `book.html?check_in=${$("check-in").value}&check_out=${$("check-out").value}&guests=${$("guests").value}`;
+                history.replaceState(null, "", newUrl);
+                loadRooms();
+            };
+            loadRooms();
         });
-        step = 5; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
-    };
-  }
 
-  async function loadBooking() { booking = await api(`/bookings/${encodeURIComponent(draft.ref)}`); }
+        async function loadRooms() {
+            const a = $("alert"); a.classList.remove("show");
+            const ci = $("check-in").value, co = $("check-out").value, g = Number($("guests").value);
+            if (!ci || !co || co <= ci) { a.textContent = "Check-out must be strictly after check-in."; a.classList.add("show"); return; }
+            $("rooms").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+            try {
+                const r = await apiFetch(`/rooms/availability?check_in=${encodeURIComponent(ci)}&check_out=${encodeURIComponent(co)}&guests=${g}`);
+                const d = await json(r);
+                if (!r.ok) throw new Error(errText(d));
+                rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+                $("rooms").innerHTML = rooms.length ? rooms.map(roomCard).join("") : '<div class="card" style="grid-column:1/-1"><h2>No rooms available</h2><p>Try different dates or reduce guests.</p></div>';
+            } catch (err) {
+                $("rooms").innerHTML = `<div class="alert show" style="grid-column:1/-1">${esc(err.message)}</div>`;
+            }
+        }
 
-  function panelPayment() {
-    if (confirmed) {
-      return `<div class="center" style="padding:1rem 0"><div class="success-mark">✓</div>
-        <h2>Booking confirmed</h2><p class="muted" style="margin:.5rem 0 1.2rem">A confirmation email is on its way to ${esc(Auth.user.email)}.</p>
-        <div class="code-box">${esc(confirmed.confirmation_code)}</div>
-        <p class="muted small" style="margin:.8rem 0 1.4rem">Confirmation code · Reference <strong>${esc(confirmed.booking_ref)}</strong><br>Keep this code safe — you will need it to request a refund.</p>
-        <div class="row" style="justify-content:center"><a class="btn btn-primary" href="booking-detail.html?ref=${encodeURIComponent(confirmed.booking_ref)}">View booking</a><a class="btn btn-outline" href="index.html">Back to home</a></div></div>`;
-    }
-    const b = booking.status;
-    if (!b.can_pay) {
-      return `<div class="alert alert-warn">This reservation can no longer be paid (${esc(b.display_status)}). <a href="book.html" id="restart">Start a new booking</a></div>`;
-    }
-    return `<h2 class="card-title">Complete your payment</h2>
-      <div class="alert alert-warn" style="align-items:center;justify-content:space-between;margin-bottom:1.2rem">
-        <span>Your room is held for</span><span class="countdown" id="cd">${esc(b.countdown)}</span></div>
-      <div class="card" style="background:var(--ivory);box-shadow:none">
-        <div class="summary-line"><span>Booking reference</span><strong>${esc(booking.booking_ref)}</strong></div>
-        <div class="summary-line"><span>Amount due</span><strong style="font-size:1.2rem">${money(booking.total_amount)}</strong></div>
-      </div>
-      <div class="alert alert-info" style="margin-top:1rem">This is a demonstration payment. No card details are collected and no money is charged.</div>
-      <div id="pay-err" class="alert alert-error hidden" role="alert" style="margin-top:1rem"></div>
-      <div class="row between" style="margin-top:1.4rem">
-        <button class="btn btn-danger-outline" id="release">Release hold</button>
-        <div class="row"><a class="btn btn-outline" href="bookings.html">Pay later</a><button class="btn btn-gold btn-lg" id="pay">Pay ${money(booking.total_amount)}</button></div>
-      </div>
-      <p class="small muted" style="margin-top:1rem">Need breakfast or transport? You can <a href="booking-detail.html?ref=${encodeURIComponent(booking.booking_ref)}">add services</a> before paying.</p>`;
-  }
-  function wirePayment() {
-    if (confirmed || !booking.status.can_pay) { const r = $('#restart'); if (r) r.onclick = () => { draft = blank(); save(); }; return; }
-    startCountdown(booking.status.seconds_left);
-    $('#pay').onclick = async () => {
-      const err = $('#pay-err'); err.classList.add('hidden');
-      try {
-        await withLoading($('#pay'), async () => { confirmed = await pay(draft.ref, draft.idem); });
-        sessionStorage.removeItem(KEY); stopCountdown(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
-    };
-    $('#release').onclick = async () => {
-      const ok = await dialog({ title: 'Release this hold?', message: 'Your room will be made available to other guests.', confirmText: 'Release hold', danger: true });
-      if (!ok) return;
-      try { await api(`/bookings/${encodeURIComponent(draft.ref)}/cancel`, { method: 'POST' }); toast('Hold released.', 'success'); draft = blank(); save(); location.href = 'bookings.html'; }
-      catch (ex) { toast(ex.message, 'error'); }
-    };
-  }
-  function startCountdown(sec) {
-    stopCountdown(); let left = sec;
-    countdownTimer = setInterval(() => {
-      left--; const el = $('#cd');
-      if (left <= 0) { stopCountdown(); toast('Your hold has expired.', 'error'); loadBooking().then(render); return; }
-      if (el) el.textContent = [Math.floor(left / 3600), Math.floor(left % 3600 / 60), left % 60].map((n) => String(n).padStart(2, '0')).join(':');
-    }, 1000);
-  }
-  function stopCountdown() { clearInterval(countdownTimer); countdownTimer = null; }
+        function roomCard(r) {
+            const id = r.id || r.room_type_id || r.room_id || "";
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = $("guests").value;
+            const name = r.name || r.room_type || "Luxury Room";
+            const desc = r.description || "Elegant accommodation with modern comforts.";
+            const price = r.price || r.base_price || 0;
+            const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+            const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+            const availCount = r.available_rooms ?? 1;
 
-  /* ----- Render ----- */
-  function render() {
-    renderStepper();
-    const panel = $('#panel');
-    panel.innerHTML = [panelStay, panelRooms, panelExtras, panelReview, panelPayment][step - 1]();
-    [wireStay, wireRooms, wireExtras, wireReview, wirePayment][step - 1]();
-    renderSummary();
-  }
+            const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+            const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
 
-  /* ----- Boot ----- */
-  (async () => {
-    await App.ready;
-    await loadServices();
-    if (draft.ref && Auth.loggedIn) {                 // resume an unpaid hold after refresh
-      try { await loadBooking(); if (booking.status.can_pay) { step = 5; render(); return; } } catch { /* fall through */ }
-      draft.ref = null; save();
-    }
-    if (step >= 2) await loadTypes();
-    render();
-  })();
-})();
-</script>
+            return `
+            <article class="card room">
+                <img src="${esc(img)}" alt="${esc(name)}">
+                <div class="body">
+                    <div class="row between">
+                        <h3>${esc(name)}</h3>
+                        <span class="badge b-ok">${availCount} available</span>
+                    </div>
+                    <p>${esc(desc)}</p>
+                    <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                    <div class="row between" style="margin-top:auto; align-items:center;">
+                        <span class="price">${fmtPKR(price)}<small> / night</small></span>
+                        <div class="row" style="gap:.5rem;">
+                            <a class="btn sm" href="${detailUrl}">View details</a>
+                            <a class="btn sm primary" href="${checkoutUrl}">Select room →</a>
+                        </div>
+                    </div>
+                </div>
+            </article>`;
+        }
+    </script> -->
+
+        <!-- <script>
+
+        let rooms = [];
+        document.addEventListener("DOMContentLoaded", () => {
+            renderHeader("book");
+
+            const q = new URLSearchParams(location.search);
+            const today = localISO(new Date());
+
+            const ci = q.get("check_in") || today;
+            const co = q.get("check_out") || addDays(ci, 1);
+
+            $("check-in").min = today;
+            $("check-in").value = ci;
+
+            $("check-out").min = addDays(ci, 1);
+            $("check-out").value = co;
+
+            $("guests").value = q.get("guests") || "2";
+
+            $("check-in").onchange = e => {
+                const selectedCheckIn = e.target.value;
+                const nextDay = addDays(selectedCheckIn, 1);
+                $("check-out").min = nextDay;
+                if ($("check-out").value <= selectedCheckIn) {
+                    $("check-out").value = nextDay;
+                }
+            };
+
+            // Capture form submission to update URL and reload rooms live
+            $("filter-form").onsubmit = e => {
+                e.preventDefault();
+                const newCi = $("check-in").value;
+                const newCo = $("check-out").value;
+                const newGuests = $("guests").value;
+
+                // Push new query parameters to the URL history without page reload
+                const newUrl = `book.html?check_in=${newCi}&check_out=${newCo}&guests=${newGuests}`;
+                history.replaceState(null, "", newUrl);
+
+                loadRooms();
+            };
+            loadRooms();
+        });
+
+        async function loadRooms() {
+            const a = $("alert");
+            a.classList.remove("show");
+
+            // Read directly from the form inputs
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = Number($("guests").value);
+
+            if (!ci || !co || co <= ci) {
+                a.textContent = "Check-out must be strictly after check-in.";
+                a.classList.add("show");
+                return;
+            }
+
+            $("rooms").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+            try {
+                const r = await apiFetch(`/rooms/availability?check_in=${encodeURIComponent(ci)}&check_out=${encodeURIComponent(co)}&guests=${g}`);
+                const d = await json(r);
+                if (!r.ok) throw new Error(errText(d));
+                rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+                $("rooms").innerHTML = rooms.length ? rooms.map(roomCard).join("") : '<div class="card" style="grid-column:1/-1"><h2>No rooms available</h2><p>Try different dates or reduce guests.</p></div>';
+            } catch (err) {
+                $("rooms").innerHTML = `<div class="alert show" style="grid-column:1/-1">${esc(err.message)}</div>`;
+            }
+        }
+
+        function roomCard(r) {
+            const id = r.id || r.room_type_id || r.room_id || "";
+
+            // Explicitly grab the live input values from the page so they are never stale
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = $("guests").value;
+
+            const name = r.name || r.room_type || "Luxury Room";
+            const desc = r.description || "Elegant accommodation with modern comforts.";
+            const price = r.price || r.base_price || 0;
+            const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+            const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+            const availCount = r.available_rooms ?? 1;
+
+            const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+            const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+
+            return `
+            <article class="card room">
+                <img src="${esc(img)}" alt="${esc(name)}">
+                <div class="body">
+                    <div class="row between">
+                        <h3>${esc(name)}</h3>
+                        <span class="badge b-ok">${availCount} available</span>
+                    </div>
+                    <p>${esc(desc)}</p>
+                    <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                    <div class="row between" style="margin-top:auto; align-items:center;">
+                        <span class="price">${fmtPKR(price)}<small> / night</small></span>
+                        <div class="row" style="gap:.5rem;">
+                            <a class="btn sm" href="${detailUrl}">View details</a>
+                            <a class="btn sm primary" href="${checkoutUrl}">Select room →</a>
+                        </div>
+                    </div>
+                </div>
+            </article>`;
+        }
+    </script> -->
+
+        <script>
+            // let rooms = [];
+            window.addEventListener("pageshow", event => {
+                // Re-read from localStorage whenever the page is loaded or restored from history
+                const storedCi = localStorage.getItem("pc_check_in");
+                const storedCo = localStorage.getItem("pc_check_out");
+                const storedGuests = localStorage.getItem("pc_guests");
+
+                if (storedCi && $("check-in")) $("check-in").value = storedCi;
+                if (storedCo && $("check-out")) $("check-out").value = storedCo;
+                if (storedGuests && $("guests")) $("guests").value = storedGuests;
+
+                // Reload rooms with the fresh storage values
+                loadRooms();
+            });
+            document.addEventListener("DOMContentLoaded", () => {
+                renderHeader("book");
+
+                const q = new URLSearchParams(location.search);
+                const today = localISO(new Date());
+
+                // 1. Read from URL params -> Fallback to localStorage -> Fallback to defaults
+                const selectedCi = q.get("check_in") || localStorage.getItem("pc_check_in") || today;
+                const selectedCo = q.get("check_out") || localStorage.getItem("pc_check_out") || addDays(selectedCi, 1);
+                const selectedGuests = q.get("guests") || localStorage.getItem("pc_guests") || "2";
+
+                // Save active state to localStorage
+                localStorage.setItem("pc_check_in", selectedCi);
+                localStorage.setItem("pc_check_out", selectedCo);
+                localStorage.setItem("pc_guests", selectedGuests);
+
+                const ciInput = $("check-in");
+                const coInput = $("check-out");
+                const guestsSel = $("guests");
+
+                ciInput.min = today;
+                ciInput.value = selectedCi;
+
+                coInput.min = addDays(selectedCi, 1);
+                coInput.value = selectedCo;
+
+                if (guestsSel) guestsSel.value = selectedGuests;
+
+                ciInput.onchange = e => {
+                    const selectedCheckIn = e.target.value;
+                    const nextDay = addDays(selectedCheckIn, 1);
+                    coInput.min = nextDay;
+                    if (coInput.value <= selectedCheckIn) {
+                        coInput.value = nextDay;
+                    }
+                };
+
+                // 2. Capture form submission to update localStorage, URL, and reload rooms live
+                // $("filter-form").onsubmit = e => {
+                //     e.preventDefault();
+                //     const newCi = ciInput.value;
+                //     const newCo = coInput.value;
+                //     const newGuests = guestsSel.value;
+
+                //     // Save to localStorage
+                //     localStorage.setItem("pc_check_in", newCi);
+                //     localStorage.setItem("pc_check_out", newCo);
+                //     localStorage.setItem("pc_guests", newGuests);
+
+                //     // Push new query parameters to the URL history without page reload
+                //     const newUrl = `book.html?check_in=${newCi}&check_out=${newCo}&guests=${newGuests}`;
+                //     history.replaceState(null, "", newUrl);
+
+                //     loadRooms();
+                // };
+
+
+                $("filter-form").onsubmit = e => {
+                    e.preventDefault();
+                    const newCi = ciInput.value;
+                    const newCo = coInput.value;
+
+                    localStorage.setItem("pc_check_in", newCi);
+                    localStorage.setItem("pc_check_out", newCo);
+                    localStorage.setItem("pc_guests", adults);
+                    localStorage.setItem("pc_children", children);
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+
+                    const newUrl = `book.html?check_in=${newCi}&check_out=${newCo}&guests=${adults}&children=${children}`;
+                    history.replaceState(null, "", newUrl);
+
+                    loadRooms();
+                };
+
+
+                loadRooms();
+            }
+
+
+
+            );
+
+            async function loadRooms() {
+                const a = $("alert");
+                a.classList.remove("show");
+
+                // Read directly from the form inputs
+                const ci = $("check-in").value;
+                const co = $("check-out").value;
+                const g = Number($("guests").value);
+
+                if (!ci || !co || co <= ci) {
+                    a.textContent = "Check-out must be strictly after check-in.";
+                    a.classList.add("show");
+                    return;
+                }
+
+                $("rooms").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+                try {
+                    const r = await apiFetch(`/rooms/availability?check_in=${encodeURIComponent(ci)}&check_out=${encodeURIComponent(co)}&guests=${g}`, { cache: "no-store" });
+                    const d = await json(r);
+                    if (!r.ok) throw new Error(errText(d));
+                    rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+                    $("rooms").innerHTML = rooms.length ? rooms.map(roomCard).join("") : '<div class="card" style="grid-column:1/-1"><h2>No rooms available</h2><p>Try different dates or reduce guests.</p></div>';
+                } catch (err) {
+                    $("rooms").innerHTML = `<div class="alert show" style="grid-column:1/-1">${esc(err.message)}</div>`;
+                }
+            }
+
+            function roomCard(r) {
+                const id = r.id || r.room_type_id || r.room_id || "";
+
+                // Explicitly grab the live input values from the page and update localStorage
+                const ci = $("check-in").value;
+                const co = $("check-out").value;
+                const g = $("guests").value;
+
+                localStorage.setItem("pc_check_in", ci);
+                localStorage.setItem("pc_check_out", co);
+                localStorage.setItem("pc_guests", g);
+
+                const name = r.name || r.room_type || "Luxury Room";
+                const desc = r.description || "Elegant accommodation with modern comforts.";
+                const price = r.price || r.base_price || 0;
+                const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+                const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+                // const availCount = r.available_rooms ?? 1;
+
+                const availCount = Number(r.available_rooms ?? 0);
+                const isSoldOut = availCount <= 0;
+
+                const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+                const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}`;
+
+                return `
+            <article class="card room">
+                <img src="${esc(img)}" alt="${esc(name)}">
+                <div class="body">
+                    <div class="row between">
+                        <h3>${esc(name)}</h3>
+                        <span class="badge ${isSoldOut ? "b-err" : "b-ok"}">${isSoldOut ? "Sold out" : `${availCount} available`}</span>
+                    </div>
+                    <p>${esc(desc)}</p>
+                    <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                    <div class="row between" style="margin-top:auto; align-items:center;">
+                        <span class="price">${fmtPKR(price)}<small> / night</small></span>
+                        <div class="row" style="gap:.5rem;">
+                            <a class="btn sm" href="${detailUrl}">View details</a>
+                            ${isSoldOut
+                        ? `<button class="btn sm" disabled style="opacity:.5;cursor:not-allowed;">Unavailable</button>`
+                        : `<a class="btn sm primary btn-select-room" data-room-id="${esc(id)}" href="${checkoutUrl}">Select room →</a>`
+                    }
+                        </div>
+                    </div>
+            </article>`;
+            }
+        </script>
+
+
+
+
+    </body>
+
+    </html>
+
+
+
+</template>
+
+
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Book a Stay — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap">
+            <h1>Book your stay</h1>
+            <ol class="steps">
+                <li class="on"><span>1</span> Choose room &amp; check dates</li>
+                <li><span>2</span> Guest details &amp; add-ons</li>
+                <li><span>3</span> Secure payment</li>
+                <li><span>4</span> Confirmation</li>
+            </ol>
+            <form class="search" id="filter-form" style="margin-top:1.5rem; margin-bottom:2rem">
+                <div class="field"><label for="check-in">Check-in</label><input type="date" id="check-in" required>
+                </div>
+                <div class="field"><label for="check-out">Check-out</label><input type="date" id="check-out" required>
+                </div>
+
+                <!-- Professional Guest & Children Drawer Toggle -->
+                <div class="field" style="flex:1; min-width:220px; text-align:left; position:relative;">
+                    <label for="guest-dropdown-toggle">Guests &amp; Rooms</label>
+                    <div id="guest-dropdown-toggle"
+                        style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                        <span id="guest-summary-text">2 Adults, 0 Children</span>
+                        <small>▼</small>
+                    </div>
+
+                    <div id="guest-popup-drawer"
+                        style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:.5rem; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+                            <div>
+                                <strong style="color:#fff; display:block; font-size:.9rem;">Adults</strong>
+                                <small style="color:#94a3b8; font-size:0.75rem;">Ages 12 or above</small>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:.5rem;">
+                                <button type="button" class="btn sm" id="adult-minus">-</button>
+                                <span id="adult-count" style="color:#fff; min-width:20px; text-align:center;">2</span>
+                                <button type="button" class="btn sm" id="adult-plus">+</button>
+                            </div>
+                        </div>
+
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+                            <div>
+                                <strong style="color:#fff; display:block; font-size:.9rem;">Children</strong>
+                                <small style="color:#94a3b8; font-size:0.75rem;">Ages 0 – 11</small>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:.5rem;">
+                                <button type="button" class="btn sm" id="child-minus">-</button>
+                                <span id="child-count" style="color:#fff; min-width:20px; text-align:center;">0</span>
+                                <button type="button" class="btn sm" id="child-plus">+</button>
+                            </div>
+                        </div>
+
+                        <div id="child-ages-wrapper"
+                            style="border-top:1px solid #334155; margin-top:.75rem; padding-top:.75rem; display:none;">
+                            <small style="color:#94a3b8; display:block; margin-bottom:.5rem;">Please select child
+                                ages:</small>
+                            <div id="drawer-ages-container" style="display:flex; flex-direction:column; gap:.5rem;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn primary" type="submit">Update availability</button>
+            </form>
+            <div class="alert" id="alert" role="alert"></div>
+            <div class="grid" id="rooms" style="margin-top:1.5rem">
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+            </div>
+        </div>
+    </main>
+    <script src="common.js"></script>
+
+    <!-- <script>
+        let rooms = [];
+        document.addEventListener("DOMContentLoaded", () => {
+            renderHeader("book");
+
+            const q = new URLSearchParams(location.search);
+            const today = localISO(new Date());
+
+            const selectedCi = q.get("check_in") || localStorage.getItem("pc_check_in") || today;
+            const selectedCo = q.get("check_out") || localStorage.getItem("pc_check_out") || addDays(selectedCi, 1);
+
+            let adults = Number(q.get("guests") || localStorage.getItem("pc_guests") || 2);
+            let children = Number(q.get("children") || localStorage.getItem("pc_children") || 0);
+            let childAges = localStorage.getItem("pc_child_ages") ? JSON.parse(localStorage.getItem("pc_child_ages")) : [];
+
+            localStorage.setItem("pc_check_in", selectedCi);
+            localStorage.setItem("pc_check_out", selectedCo);
+            localStorage.setItem("pc_guests", adults);
+            localStorage.setItem("pc_children", children);
+
+            const ciInput = $("check-in");
+            const coInput = $("check-out");
+
+            ciInput.min = today;
+            ciInput.value = selectedCi;
+            coInput.min = addDays(selectedCi, 1);
+            coInput.value = selectedCo;
+
+            ciInput.onchange = e => {
+                const selectedCheckIn = e.target.value;
+                const nextDay = addDays(selectedCheckIn, 1);
+                coInput.min = nextDay;
+                if (coInput.value <= selectedCheckIn) {
+                    coInput.value = nextDay;
+                }
+            };
+
+            // Drawer UI & Controller Elements
+            const toggleBtn = $("guest-dropdown-toggle");
+            const drawer = $("guest-popup-drawer");
+            const summaryText = $("guest-summary-text");
+            const adultCountEl = $("adult-count");
+            const childCountEl = $("child-count");
+
+            function updateSummary() {
+                if (summaryText) {
+                    summaryText.textContent = `${adults} Adult${adults === 1 ? '' : 's'}, ${children} Child${children === 1 ? '' : 'ren'}`;
+                }
+                // localStorage.setItem("pc_guests", adults);
+                // localStorage.setItem("pc_children", children);
+                saveStayPrefs(null, null, adults, children); // Keep in sync for map views
+            }
+
+            function renderDrawerAges() {
+                const wrapper = $("child-ages-wrapper");
+                const container = $("drawer-ages-container");
+                if (!wrapper || !container) return;
+
+                if (children > 0) {
+                    wrapper.style.display = "block";
+                    container.innerHTML = Array.from({ length: children }, (_, i) => {
+                        const age = childAges[i] !== undefined && childAges[i].age !== undefined ? childAges[i].age : 5;
+                        return `
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="color:#cbd5e1; font-size:0.8rem;">Child ${i + 1} Age</label>
+                                <select class="drawer-age-select" data-index="${i}" style="padding:.3rem; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #334155;">
+                                    ${Array.from({ length: 12 }, (_, a) => `<option value="${a}" ${age === a ? 'selected' : ''}>${a} year${a === 1 ? '' : 's'}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                    }).join('');
+
+                    container.querySelectorAll(".drawer-age-select").forEach(sel => {
+                        sel.onchange = e => {
+                            const idx = Number(e.target.getAttribute("data-index"));
+                            if (!childAges[idx]) childAges[idx] = {};
+                            childAges[idx].age = Number(e.target.value);
+                            localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                        };
+                    });
+                } else {
+                    wrapper.style.display = "none";
+                    container.innerHTML = "";
+                    localStorage.removeItem("pc_child_ages");
+                }
+            }
+
+            if (toggleBtn && drawer) {
+                toggleBtn.onclick = e => {
+                    e.stopPropagation();
+                    drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+                };
+                document.addEventListener("click", e => {
+                    if (!drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        drawer.style.display = "none";
+                    }
+                });
+            }
+
+            if ($("adult-minus")) $("adult-minus").onclick = () => { if (adults > 1) { adults--; adultCountEl.textContent = adults; updateSummary(); } };
+            if ($("adult-plus")) $("adult-plus").onclick = () => { if (adults < 10) { adults++; adultCountEl.textContent = adults; updateSummary(); } };
+
+            if ($("child-minus")) $("child-minus").onclick = () => {
+                if (children > 0) {
+                    children--;
+                    childCountEl.textContent = children;
+                    childAges.pop();
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+            if ($("child-plus")) $("child-plus").onclick = () => {
+                if (children < 6) {
+                    children++;
+                    childCountEl.textContent = children;
+                    childAges.push({ age: 5 });
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+
+            if (adultCountEl) adultCountEl.textContent = adults;
+            if (childCountEl) childCountEl.textContent = children;
+            updateSummary();
+            renderDrawerAges();
+
+            $("filter-form").onsubmit = e => {
+                e.preventDefault();
+                const newCi = ciInput.value;
+                const newCo = coInput.value;
+
+                // Save globally so home and checkout map immediately
+                saveStayPrefs(newCi, newCo, adults, children);
+                localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+
+                const newUrl = `book.html?check_in=${newCi}&check_out=${newCo}&guests=${adults}&children=${children}`;
+                history.replaceState(null, "", newUrl);
+
+                loadRooms();
+            };
+            loadRooms();
+        });
+
+        async function loadRooms() {
+            const a = $("alert");
+            a.classList.remove("show");
+
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = Number(localStorage.getItem("pc_guests") || 2);
+
+            if (!ci || !co || co <= ci) {
+                a.textContent = "Check-out must be strictly after check-in.";
+                a.classList.add("show");
+                return;
+            }
+
+            $("rooms").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+            try {
+                const r = await apiFetch(`/rooms/availability?check_in=${encodeURIComponent(ci)}&check_out=${encodeURIComponent(co)}&guests=${g}`);
+                const d = await json(r);
+                if (!r.ok) throw new Error(errText(d));
+                rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+                $("rooms").innerHTML = rooms.length ? rooms.map(roomCard).join("") : '<div class="card" style="grid-column:1/-1"><h2>No rooms available</h2><p>Try different dates or reduce guests.</p></div>';
+            } catch (err) {
+                $("rooms").innerHTML = `<div class="alert show" style="grid-column:1/-1">${esc(err.message)}</div>`;
+            }
+        }
+
+
+        function roomCard(r) {
+            const id = r.id || r.room_type_id || r.room_id || "";
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = localStorage.getItem("pc_guests") || "2";
+            const childrenCount = localStorage.getItem("pc_children") || "0";
+
+            // Save active state to localStorage right before navigating
+            localStorage.setItem("pc_check_in", ci);
+            localStorage.setItem("pc_check_out", co);
+            localStorage.setItem("pc_guests", g);
+            localStorage.setItem("pc_children", childrenCount);
+
+            const name = r.name || r.room_type || "Luxury Room";
+            const desc = r.description || "Elegant accommodation with modern comforts.";
+            const price = r.price || r.base_price || 0;
+            const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+            const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+            const availCount = r.available_rooms ?? 1;
+
+            const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}&children=${childrenCount}`;
+            const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}&children=${childrenCount}`;
+
+            return `
+    <article class="card room">
+        <img src="${esc(img)}" alt="${esc(name)}">
+        <div class="body">
+            <div class="row between">
+                <h3>${esc(name)}</h3>
+                <span class="badge b-ok">${availCount} available</span>
+            </div>
+            <p>${esc(desc)}</p>
+            <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+            <div class="row between" style="margin-top:auto; align-items:center;">
+                <span class="price">${fmtPKR(price)}<small> / night</small></span>
+                <div class="row" style="gap:.5rem;">
+                    <a class="btn sm" href="${detailUrl}">View details</a>
+                    <a class="btn sm primary" href="${checkoutUrl}">Select room →</a>
+                </div>
+            </div>
+        </div>
+    </article>`;
+        }
+
+
+        // function roomCard(r) {
+        //     const id = r.id || r.room_type_id || r.room_id || "";
+        //     const ci = $("check-in").value;
+        //     const co = $("check-out").value;
+        //     const g = localStorage.getItem("pc_guests") || "2";
+        //     const childrenCount = localStorage.getItem("pc_children") || "0";
+
+        //     const name = r.name || r.room_type || "Luxury Room";
+        //     const desc = r.description || "Elegant accommodation with modern comforts.";
+        //     const price = r.price || r.base_price || 0;
+        //     const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+        //     const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+        //     const availCount = r.available_rooms ?? 1;
+
+        //     const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}&children=${childrenCount}`;
+        //     const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}&children=${childrenCount}`;
+
+        //     return `
+        //     <article class="card room">
+        //         <img src="${esc(img)}" alt="${esc(name)}">
+        //         <div class="body">
+        //             <div class="row between">
+        //                 <h3>${esc(name)}</h3>
+        //                 <span class="badge b-ok">${availCount} available</span>
+        //             </div>
+        //             <p>${esc(desc)}</p>
+        //             <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+        //             <div class="row between" style="margin-top:auto; align-items:center;">
+        //                 <span class="price">${fmtPKR(price)}<small> / night</small></span>
+        //                 <div class="row" style="gap:.5rem;">
+        //                     <a class="btn sm" href="${detailUrl}">View details</a>
+        //                     <a class="btn sm primary" href="${checkoutUrl}">Select room →</a>
+        //                 </div>
+        //             </div>
+        //         </div>
+        //     </article>`;
+        // }
+
+
+
+    </script> -->
+    <script>
+        let rooms = [];
+        document.addEventListener("DOMContentLoaded", () => {
+            renderHeader("book");
+
+            const q = new URLSearchParams(location.search);
+            const today = localISO(new Date());
+
+            // Read using shared prefs or URL/LocalStorage fallbacks
+            const selectedCi = q.get("check_in") || localStorage.getItem("pc_check_in") || today;
+            const selectedCo = q.get("check_out") || localStorage.getItem("pc_check_out") || addDays(selectedCi, 1);
+
+            let adults = Number(q.get("guests") || localStorage.getItem("pc_guests") || 2);
+            let children = Number(q.get("children") || localStorage.getItem("pc_children") || 0);
+            let childAges = localStorage.getItem("pc_child_ages") ? JSON.parse(localStorage.getItem("pc_child_ages")) : [];
+
+            // Save globally on load
+            saveStayPrefs(selectedCi, selectedCo, adults, children);
+
+            const ciInput = $("check-in");
+            const coInput = $("check-out");
+
+            ciInput.min = today;
+            ciInput.value = selectedCi;
+            coInput.min = addDays(selectedCi, 1);
+            coInput.value = selectedCo;
+
+            // --- LIVE SYNC ON DATE CHANGE ---
+            ciInput.onchange = e => {
+                const selectedCheckIn = e.target.value;
+                const nextDay = addDays(selectedCheckIn, 1);
+                coInput.min = nextDay;
+                if (coInput.value <= selectedCheckIn) {
+                    coInput.value = nextDay;
+                }
+                saveStayPrefs(ciInput.value, coInput.value, adults, children);
+            };
+
+            coInput.onchange = () => {
+                saveStayPrefs(ciInput.value, coInput.value, adults, children);
+            };
+
+            // Drawer UI & Controller Elements
+            const toggleBtn = $("guest-dropdown-toggle");
+            const drawer = $("guest-popup-drawer");
+            const summaryText = $("guest-summary-text");
+            const adultCountEl = $("adult-count");
+            const childCountEl = $("child-count");
+
+            function updateSummary() {
+                if (summaryText) {
+                    summaryText.textContent = `${adults} Adult${adults === 1 ? '' : 's'}, ${children} Child${children === 1 ? '' : 'ren'}`;
+                }
+                // Instantly sync globally so checkout.html and home.html catch changes live
+                saveStayPrefs(ciInput.value, coInput.value, adults, children);
+            }
+
+            function renderDrawerAges() {
+                const wrapper = $("child-ages-wrapper");
+                const container = $("drawer-ages-container");
+                if (!wrapper || !container) return;
+
+                if (children > 0) {
+                    wrapper.style.display = "block";
+                    container.innerHTML = Array.from({ length: children }, (_, i) => {
+                        const age = childAges[i] !== undefined && childAges[i].age !== undefined ? childAges[i].age : 5;
+                        return `
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="color:#cbd5e1; font-size:0.8rem;">Child ${i + 1} Age</label>
+                                <select class="drawer-age-select" data-index="${i}" style="padding:.3rem; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #334155;">
+                                    ${Array.from({ length: 12 }, (_, a) => `<option value="${a}" ${age === a ? 'selected' : ''}>${a} year${a === 1 ? '' : 's'}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                    }).join('');
+
+                    container.querySelectorAll(".drawer-age-select").forEach(sel => {
+                        sel.onchange = e => {
+                            const idx = Number(e.target.getAttribute("data-index"));
+                            if (!childAges[idx]) childAges[idx] = {};
+                            childAges[idx].age = Number(e.target.value);
+                            localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                        };
+                    });
+                } else {
+                    wrapper.style.display = "none";
+                    container.innerHTML = "";
+                    localStorage.removeItem("pc_child_ages");
+                }
+            }
+
+            if (toggleBtn && drawer) {
+                toggleBtn.onclick = e => {
+                    e.stopPropagation();
+                    drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+                };
+                document.addEventListener("click", e => {
+                    if (!drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        drawer.style.display = "none";
+                    }
+                });
+            }
+
+            if ($("adult-minus")) $("adult-minus").onclick = () => { if (adults > 1) { adults--; adultCountEl.textContent = adults; updateSummary(); } };
+            if ($("adult-plus")) $("adult-plus").onclick = () => { if (adults < 10) { adults++; adultCountEl.textContent = adults; updateSummary(); } };
+
+            if ($("child-minus")) $("child-minus").onclick = () => {
+                if (children > 0) {
+                    children--;
+                    childCountEl.textContent = children;
+                    childAges.pop();
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+            if ($("child-plus")) $("child-plus").onclick = () => {
+                if (children < 6) {
+                    children++;
+                    childCountEl.textContent = children;
+                    childAges.push({ age: 5 });
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+
+            if (adultCountEl) adultCountEl.textContent = adults;
+            if (childCountEl) childCountEl.textContent = children;
+            updateSummary();
+            renderDrawerAges();
+
+            $("filter-form").onsubmit = e => {
+                e.preventDefault();
+                const newCi = ciInput.value;
+                const newCo = coInput.value;
+
+                saveStayPrefs(newCi, newCo, adults, children);
+                localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+
+                const newUrl = `book.html?check_in=${newCi}&check_out=${newCo}&guests=${adults}&children=${children}`;
+                history.replaceState(null, "", newUrl);
+
+                loadRooms();
+
+                window.addEventListener("pc-chatbot-action", () => {
+                    loadRooms();
+                });
+
+                // 2. Re-fetch availability if user returns via browser Back button or switches back to tab
+                window.addEventListener("pageshow", () => {
+                    loadRooms();
+                });
+                document.addEventListener("visibilitychange", () => {
+                    if (document.visibilityState === "visible") loadRooms();
+                });
+
+            };
+            loadRooms();
+
+            // --- EVENT DELEGATION FOR ROOM SELECTION ---
+            const roomsContainer = $("rooms");
+            if (roomsContainer) {
+                roomsContainer.onclick = e => {
+                    const selectBtn = e.target.closest(".btn-select-room");
+                    if (!selectBtn) return;
+
+
+                    e.preventDefault();
+
+                    const roomId = selectBtn.getAttribute("data-room-id");
+
+                    // Grab the absolute latest values from the live input fields right now
+                    const liveCi = ciInput ? ciInput.value : localStorage.getItem("pc_check_in");
+                    const liveCo = coInput ? coInput.value : localStorage.getItem("pc_check_out");
+                    const liveGuests = localStorage.getItem("pc_guests") || "2";
+                    const liveChildren = localStorage.getItem("pc_children") || "0";
+
+                    // Save globally
+                    saveStayPrefs(liveCi, liveCo, liveGuests, liveChildren);
+
+                    // Redirect dynamically with live values
+                    location.href = `checkout.html?room=${encodeURIComponent(roomId)}&check_in=${liveCi}&check_out=${liveCo}&guests=${liveGuests}&children=${liveChildren}`;
+                };
+            }
+        });
+
+        async function loadRooms() {
+            const a = $("alert");
+            a.classList.remove("show");
+
+            const ci = $("check-in").value;
+            const co = $("check-out").value;
+            const g = Number(localStorage.getItem("pc_guests") || 2);
+
+            if (!ci || !co || co <= ci) {
+                a.textContent = "Check-out must be strictly after check-in.";
+                a.classList.add("show");
+                return;
+            }
+
+            $("rooms").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+            try {
+                const r = await apiFetch(`/rooms/availability?check_in=${encodeURIComponent(ci)}&check_out=${encodeURIComponent(co)}&guests=${g}`);
+                const d = await json(r);
+                if (!r.ok) throw new Error(errText(d));
+                rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+                $("rooms").innerHTML = rooms.length ? rooms.map(roomCard).join("") : '<div class="card" style="grid-column:1/-1"><h2>No rooms available</h2><p>Try different dates or reduce guests.</p></div>';
+            } catch (err) {
+                $("rooms").innerHTML = `<div class="alert show" style="grid-column:1/-1">${esc(err.message)}</div>`;
+            }
+        }
+
+        function roomCard(r) {
+            const id = r.id || r.room_type_id || r.room_id || "";
+            const ci = $("check-in") ? $("check-in").value : localStorage.getItem("pc_check_in");
+            const co = $("check-out") ? $("check-out").value : localStorage.getItem("pc_check_out");
+            const g = localStorage.getItem("pc_guests") || "2";
+            const childrenCount = localStorage.getItem("pc_children") || "0";
+
+            // Save active state to localStorage / URL right before generating links
+            saveStayPrefs(ci, co, g, childrenCount);
+
+            const name = r.name || r.room_type || "Luxury Room";
+            const desc = r.description || "Elegant accommodation with modern comforts.";
+            const price = r.price || r.base_price || 0;
+            const img = r.image_url || r.image || "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=70";
+            const amenities = Array.isArray(r.amenities) ? r.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+            const availCount = r.available_rooms ?? 1;
+
+            const detailUrl = `room-detail.html?room=${encodeURIComponent(id)}&check_in=${ci}&check_out=${co}&guests=${g}&children=${childrenCount}`;
+            const checkoutUrl = `checkout.html?room=${encodeURIComponent(id)}`;
+
+            return `
+            <article class="card room">
+                <img src="${esc(img)}" alt="${esc(name)}">
+                <div class="body">
+                    <div class="row between">
+                        <h3>${esc(name)}</h3>
+                        <span class="badge b-ok">${availCount} available</span>
+                    </div>
+                    <p>${esc(desc)}</p>
+                    <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                    <div class="row between" style="margin-top:auto; align-items:center;">
+                        <span class="price">${fmtPKR(price)}<small> / night</small></span>
+                        <div class="row" style="gap:.5rem;">
+                            <a class="btn sm" href="${detailUrl}">View details</a>
+                            <a class="btn sm primary btn-select-room" data-room-id="${esc(id)}" href="${checkoutUrl}">Select room →</a>
+                        </div>
+                    </div>
+                </div>
+            </article>`;
+        }
+    </script>
 </body>
+
+</html>
+
+</body>
+
 </html>

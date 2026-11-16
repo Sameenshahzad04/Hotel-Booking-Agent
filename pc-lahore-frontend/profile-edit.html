@@ -1,0 +1,340 @@
+<!-- <!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Update Account Details — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:580px">
+            <p><a href="home.html">← Back to home</a></p>
+            <h1 style="margin-top:1rem;">Account Details</h1>
+            <p class="muted" style="margin-bottom:1.5rem">Update your personal information and contact details.</p>
+
+            <div class="alert" id="alert" role="alert"></div>
+
+            <div class="card">
+                <form id="profile-form" novalidate>
+                    <div class="field">
+                        <label for="email">Email Address (Read-only)</label>
+                        <input id="email" type="email" disabled style="opacity:.7; cursor:not-allowed;">
+                    </div>
+                    <div class="field">
+                        <label for="full_name">Full Name</label>
+                        <input id="full_name" required>
+                    </div>
+                    <div class="field">
+                        <label for="phone">Phone Number (11 digits)</label>
+                        <input id="phone" type="tel" placeholder="03001234567">
+                        <p class="err" id="phone-err"></p>
+                    </div>
+                    <div class="row" style="gap:1rem;">
+                        <div class="field" style="flex:1">
+                            <label for="age">Age</label>
+                            <input id="age" type="number" min="12" max="150" placeholder="e.g. 28">
+                        </div>
+                        <div class="field" style="flex:1">
+                            <label for="gender">Gender</label>
+                            <select id="gender">
+                                <option value="">Select gender</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="address">Residential Address</label>
+                        <textarea id="address" placeholder="Enter your street address or city"
+                            style="min-height:70px; resize:vertical;"></textarea>
+                    </div>
+                    <div class="row between" style="margin-top:1.5rem;">
+                        <a class="btn" href="home.html">Cancel</a>
+                        <button class="btn primary" type="submit">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="common.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("");
+            if (!getToken()) { goLogin(); return; }
+            const alertBox = $("alert");
+
+            try {
+                const res = await apiFetch("/auth/profile");
+                const data = await json(res);
+                if (!res.ok) throw new Error(errText(data, "Failed to load profile."));
+
+                $("email").value = data.email || "";
+                $("full_name").value = data.full_name || "";
+                $("phone").value = data.phone || "";
+                $("age").value = data.age || "";
+                $("gender").value = data.gender || "";
+                $("address").value = data.address || "";
+            } catch (err) {
+                alertBox.textContent = err.message;
+                alertBox.classList.add("show");
+            }
+
+            $("profile-form").onsubmit = async e => {
+                e.preventDefault();
+                alertBox.classList.remove("show");
+                $("phone-err").textContent = "";
+
+                const phoneVal = $("phone").value.trim();
+                if (phoneVal && phoneVal.replace(/\D/g, "").length !== 11) {
+                    $("phone-err").textContent = "Phone number must be exactly 11 digits.";
+                    return;
+                }
+
+                const payload = {
+                    full_name: $("full_name").value.trim(),
+                    phone: phoneVal || null,
+                    age: $("age").value ? Number($("age").value) : null,
+                    gender: $("gender").value || null,
+                    address: $("address").value.trim() || null
+                };
+
+                try {
+                    const res = await apiFetch("/auth/profile", {
+                        method: "PUT",
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await json(res);
+                    if (!res.ok) throw new Error(errText(data, "Update failed."));
+
+                    const u = getUser() || {};
+                    u.full_name = payload.full_name;
+                    u.phone = payload.phone;
+                    localStorage.setItem(USER_KEY, JSON.stringify(u));
+
+                    toast("Profile updated successfully!", "success");
+                    setTimeout(() => { location.href = "home.html"; }, 800);
+                } catch (err) {
+                    alertBox.textContent = err.message;
+                    alertBox.classList.add("show");
+                }
+            };
+        });
+    </script>
+</body>
+
+</html> -->
+
+
+
+
+
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Update Account Details — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/css/intlTelInput.css">
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/intlTelInput.min.js"></script>
+
+    <style>
+        .iti {
+            width: 100%;
+        }
+
+        .iti__selected-dial-code {
+            color: #f8fafc;
+        }
+
+        .iti__arrow {
+            border-top-color: #cbd5e1;
+        }
+
+        .iti__arrow--up {
+            border-bottom-color: #cbd5e1;
+        }
+
+        /* Dark theme for the country dropdown & search box */
+        .iti__dropdown-content {
+            background-color: #1e293b !important;
+            border: 1px solid #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        .iti__search-input {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            border-bottom: 1px solid #334155 !important;
+        }
+
+        .iti__country-list {
+            background-color: #1e293b !important;
+        }
+
+        .iti__country {
+            color: #f8fafc !important;
+        }
+
+        .iti__country .iti__country-name {
+            color: #f8fafc !important;
+        }
+
+        .iti__country .iti__dial-code {
+            color: #94a3b8 !important;
+        }
+
+        .iti__country.iti__highlight,
+        .iti__country:hover {
+            background-color: #334155 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:580px">
+            <p><a href="home.html">← Back to home</a></p>
+            <h1 style="margin-top:1rem;">Account Details</h1>
+            <p class="muted" style="margin-bottom:1.5rem">Update your personal information and contact details.</p>
+
+            <div class="alert" id="alert" role="alert"></div>
+
+            <div class="card">
+                <form id="profile-form" novalidate>
+                    <div class="field">
+                        <label for="email">Email Address (Read-only)</label>
+                        <input id="email" type="email" disabled style="opacity:.7; cursor:not-allowed;">
+                    </div>
+                    <div class="field">
+                        <label for="full_name">Full Name</label>
+                        <input id="full_name" required>
+                    </div>
+                    <div class="field">
+                        <label for="phone">Mobile Number</label>
+                        <input id="phone" type="tel" autocomplete="tel">
+                        <p class="err" id="phone-err"></p>
+                    </div>
+                    <div class="row" style="gap:1rem;">
+                        <div class="field" style="flex:1">
+                            <label for="age">Age</label>
+                            <input id="age" type="number" min="12" max="150" placeholder="e.g. 28">
+                        </div>
+                        <div class="field" style="flex:1">
+                            <label for="gender">Gender</label>
+                            <select id="gender">
+                                <option value="">Select gender</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="address">Residential Address</label>
+                        <textarea id="address" placeholder="Enter your street address or city"
+                            style="min-height:70px; resize:vertical;"></textarea>
+                    </div>
+                    <div class="row between" style="margin-top:1.5rem;">
+                        <a class="btn" href="home.html">Cancel</a>
+                        <button class="btn primary" type="submit">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="common.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("");
+            if (!getToken()) { goLogin(); return; }
+            const alertBox = $("alert");
+            const phoneInput = $("phone");
+
+            const iti = window.intlTelInput(phoneInput, {
+                initialCountry: "pk",
+                separateDialCode: true,
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/utils.js"
+            });
+
+            try {
+                const res = await apiFetch("/auth/profile");
+                const data = await json(res);
+                if (!res.ok) throw new Error(errText(data, "Failed to load profile."));
+
+                $("email").value = data.email || "";
+                $("full_name").value = data.full_name || "";
+                if (data.phone) {
+                    iti.setNumber(data.phone);
+                }
+                $("age").value = data.age || "";
+                $("gender").value = data.gender || "";
+                $("address").value = data.address || "";
+            } catch (err) {
+                alertBox.textContent = err.message;
+                alertBox.classList.add("show");
+            }
+
+            $("profile-form").onsubmit = async e => {
+                e.preventDefault();
+                alertBox.classList.remove("show");
+                $("phone-err").textContent = "";
+
+                const rawPhone = phoneInput.value.trim();
+                let fullPhone = null;
+
+                if (rawPhone) {
+                    try { await iti.promise; } catch (_) { }
+                    const valid = iti.isValidNumber();
+                    if (valid === false || (valid === null && rawPhone.replace(/\D/g, "").length < 7)) {
+                        $("phone-err").textContent = "Please enter a valid mobile number for the selected country.";
+                        return;
+                    }
+                    fullPhone = valid
+                        ? iti.getNumber()
+                        : "+" + iti.getSelectedCountryData().dialCode + rawPhone.replace(/\D/g, "");
+                }
+
+                const payload = {
+                    full_name: $("full_name").value.trim(),
+                    phone: fullPhone,
+                    age: $("age").value ? Number($("age").value) : null,
+                    gender: $("gender").value || null,
+                    address: $("address").value.trim() || null
+                };
+
+                try {
+                    const res = await apiFetch("/auth/profile", {
+                        method: "PUT",
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await json(res);
+                    if (!res.ok) throw new Error(errText(data, "Update failed."));
+
+                    const u = getUser() || {};
+                    u.full_name = payload.full_name;
+                    u.phone = payload.phone;
+                    localStorage.setItem(USER_KEY, JSON.stringify(u));
+
+                    toast("Profile updated successfully!", "success");
+                    setTimeout(() => { location.href = "home.html"; }, 800);
+                } catch (err) {
+                    alertBox.textContent = err.message;
+                    alertBox.classList.add("show");
+                }
+            };
+        });
+    </script>
+</body>
+
+</html>

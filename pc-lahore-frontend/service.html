@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Manage Add-on Services — Pearl Continental</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main" class="section">
+        <div class="wrap" style="max-width:680px">
+            <p style="margin-bottom:0.5rem;"><a href="bookings.html" class="muted" style="text-decoration:none;">← Back
+                    to My Bookings</a></p>
+            <h1>Manage Add-on Services</h1>
+            <p class="muted" id="bookingMetaSubtitle">Loading booking details...</p>
+
+            <div class="alert" id="alert" role="alert"></div>
+
+            <div class="card" style="margin-top:1.5rem">
+                <h2>Available Services</h2>
+                <p class="muted" style="margin-bottom:1rem">Select or update additional hospitality services for your
+                    pending stay.</p>
+
+                <div id="services-container" class="stack" style="gap:.75rem; margin-bottom:1.5rem;">
+                    <div class="skeleton"></div>
+                </div>
+
+                <div class="row between"
+                    style="border-top:1px solid var(--line); padding-top:1.5rem; align-items:center;">
+                    <div>
+                        <span class="muted">Updated Total Amount:</span>
+                        <div class="price" id="totalAmountDisplay">PKR 0</div>
+                    </div>
+                    <div class="row" style="gap:.75rem;">
+                        <a href="bookings.html" class="btn">Cancel</a>
+                        <button class="btn primary lg" id="saveServicesBtn">Update Services &amp; Proceed →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="common.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(location.search);
+        const bookingRef = urlParams.get("ref");
+        let currentBooking = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("");
+            if (!getToken()) { goLogin(); return; }
+            if (!bookingRef) {
+                location.href = "bookings.html";
+                return;
+            }
+            await loadServicePageData();
+        });
+
+        async function loadServicePageData() {
+            const alertEl = $("alert");
+            alertEl.classList.remove("show");
+
+            try {
+                const [bookingRes, servicesRes, attachedRes] = await Promise.all([
+                    apiFetch(`/bookings/${encodeURIComponent(bookingRef)}`),
+                    apiFetch("/services"),
+                    apiFetch(`/services/booking/${encodeURIComponent(bookingRef)}`)
+                ]);
+
+                const bookingData = await json(bookingRes);
+                const servicesData = await json(servicesRes);
+                const attachedData = await json(attachedRes);
+
+                if (!bookingRes.ok) throw new Error(errText(bookingData, "Booking not found."));
+                if (!servicesRes.ok) throw new Error(errText(servicesData, "Could not load services catalog."));
+
+                currentBooking = bookingData;
+                $("bookingMetaSubtitle").textContent = `Reference: #${currentBooking.booking_ref} · Check-in: ${currentBooking.check_in} · Status: Pending`;
+                $("totalAmountDisplay").textContent = fmtPKR(currentBooking.total_amount);
+
+                const allServices = servicesData.services || [];
+                const attachedServices = attachedData.services || [];
+
+                const attachedMap = {};
+                attachedServices.forEach(s => {
+                    attachedMap[s.service_id] = s.quantity;
+                });
+
+                const container = $("services-container");
+                container.innerHTML = allServices.length ? allServices.map(s => {
+                    const assignedQty = attachedMap[s.id];
+                    const isChecked = assignedQty !== undefined && assignedQty > 0;
+                    const currentQty = isChecked ? assignedQty : 1;
+
+                    return `
+                        <label class="card row between" style="padding:.75rem 1rem; background:var(--s2); cursor:pointer; align-items:center;">
+                            <div class="row" style="gap:.75rem; align-items:center;">
+                                <input type="checkbox" name="addon" value="${s.id}" ${isChecked ? "checked" : ""} style="width:18px;height:18px;">
+                                <div>
+                                    <strong>${esc(s.name)}</strong>
+                                    <div class="muted" style="font-size:.85rem">${esc(s.description || "")}</div>
+                                </div>
+                            </div>
+                            <div class="row" style="gap:1rem; align-items:center;">
+                                <input type="number" min="1" value="${currentQty}" id="qty-${s.id}" style="width:65px; padding:.3rem;" ${!isChecked ? "disabled" : ""}>
+                                <span style="font-weight:600; color:var(--gold); min-width:90px; text-align:right;">${fmtPKR(s.price)} <small style="font-size:0.75rem">(${s.pricing_unit})</small></span>
+                            </div>
+                        </label>`;
+                }).join("") : '<p class="muted">No add-on services available.</p>';
+
+                container.querySelectorAll("input[name='addon']").forEach(chk => {
+                    chk.onchange = e => {
+                        const qtyInput = document.getElementById(`qty-${e.target.value}`);
+                        qtyInput.disabled = !e.target.checked;
+                    };
+                });
+
+            } catch (err) {
+                alertEl.textContent = err.message;
+                alertEl.classList.add("show");
+            }
+        }
+
+        $("saveServicesBtn").onclick = async () => {
+            const btn = $("saveServicesBtn");
+            btn.disabled = true;
+            btn.textContent = "Updating services...";
+
+            try {
+                const checkboxes = document.querySelectorAll("input[name='addon']:checked");
+                const servicesPayload = Array.from(checkboxes).map(chk => {
+                    const serviceId = Number(chk.value);
+                    const quantity = Number(document.getElementById(`qty-${serviceId}`).value) || 1;
+                    return { service_id: serviceId, quantity: quantity };
+                });
+
+                const res = await apiFetch(`/services/bookings/${encodeURIComponent(bookingRef)}/services`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ services: servicesPayload })
+                });
+
+                const data = await json(res);
+                if (!res.ok) throw new Error(errText(data, "Failed to update services."));
+
+                toast("Services updated successfully!", "success");
+                setTimeout(() => {
+                    location.href = `payment.html?ref=${encodeURIComponent(bookingRef)}`;
+                }, 600);
+
+            } catch (err) {
+                toast(err.message, "error");
+                btn.disabled = false;
+                btn.textContent = "Update Services & Proceed →";
+            }
+        };
+    </script>
+</body>
+
+</html>

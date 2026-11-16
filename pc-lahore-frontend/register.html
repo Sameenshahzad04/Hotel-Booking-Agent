@@ -1,101 +1,258 @@
-<!DOCTYPE html>
+<!-- <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Create account | Pearl Continental Lahore</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Create account — Pearl Continental</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+    rel="stylesheet">
 </head>
-<body data-page="register">
-<main class="auth-wrap">
-  <aside class="auth-aside">
-    <span class="eyebrow" style="color:var(--gold)">Join us</span>
-    <h2>Create your guest account</h2>
-    <p>One account for all your reservations, confirmations and chat history.</p>
-    <ul><li>Manage bookings anytime</li><li>Faster checkout with saved details</li><li>Private, secure concierge chat</li></ul>
-  </aside>
-  <section class="auth-main">
-    <div class="auth-card" style="max-width:520px">
-      <h1>Create account</h1>
-      <p class="muted" style="margin-bottom:1.5rem">Already registered? <a href="login.html" id="to-login">Sign in</a></p>
-      <div id="form-error" class="alert alert-error hidden" role="alert" style="margin-bottom:1rem"></div>
-      <form id="reg-form" novalidate>
-        <div class="field"><label for="full_name">Full name *</label><input class="input" id="full_name" autocomplete="name" required><span class="error-text" data-for="full_name"></span></div>
-        <div class="field"><label for="email">Email address *</label><input class="input" type="email" id="email" autocomplete="email" required><span class="error-text" data-for="email"></span></div>
-        <div class="field"><label for="password">Password *</label>
-          <div class="input-wrap"><input class="input" type="password" id="password" autocomplete="new-password" required><button type="button" class="toggle-pw" id="tpw">Show</button></div>
-          <div class="pw-meter"><span id="pw-bar"></span></div>
-          <span class="hint">8–15 characters. Mix letters, numbers and symbols for a stronger password.</span>
-          <span class="error-text" data-for="password"></span>
-        </div>
-        <div class="form-grid">
-          <div class="field"><label for="phone">Mobile number</label><input class="input" id="phone" inputmode="numeric" maxlength="11" placeholder="03001234567" autocomplete="tel"><span class="hint">11 digits, no spaces or dashes.</span><span class="error-text" data-for="phone"></span></div>
-          <div class="field"><label for="age">Age</label><input class="input" type="number" id="age" min="12" max="150"><span class="error-text" data-for="age"></span></div>
-          <div class="field"><label for="gender">Gender</label><select class="input" id="gender"><option value="">Prefer not to say</option><option value="male">Male</option><option value="female">Female</option></select></div>
-        </div>
-        <div class="field"><label for="address">Address</label><textarea class="input" id="address" rows="2" autocomplete="street-address"></textarea></div>
-        <button class="btn btn-primary btn-lg btn-block" type="submit" id="submit">Create account</button>
-        <p class="small muted center" style="margin-top:1rem">Fields marked * are required. Other details are optional and can be edited later.</p>
-      </form>
+
+<body>
+  <main id="main" class="section">
+    <div class="narrow">
+      <div class="card">
+        <h1>Create your account</h1>
+        <p class="muted">Book faster and keep all reservations in one place.</p>
+        <div class="alert" id="alert" role="alert"></div>
+        <form id="register-form" novalidate>
+          <div class="field"><label for="full_name">Full name</label><input id="full_name" autocomplete="name" required>
+            <p class="err" id="name-err"></p>
+          </div>
+          <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email"
+              required>
+            <p class="err" id="email-err"></p>
+          </div>
+          <div class="field"><label for="phone">Phone (11 digits)</label><input id="phone" type="tel" autocomplete="tel"
+              placeholder="03001234567" required>
+            <p class="err" id="phone-err"></p>
+          </div>
+          <div class="field"><label for="password">Password</label>
+            <div class="pw"><input id="password" type="password" autocomplete="new-password" required
+                minlength="8"><button type="button" id="toggle-pw">Show</button></div>
+            <p class="help">Use at least 8 characters.</p>
+            <p class="err" id="password-err"></p>
+          </div>
+          <div class="field">
+            <label for="confirm-password">Confirm password</label>
+            <div class="pw">
+              <input id="confirm-password" type="password" autocomplete="new-password" required minlength="8">
+              <button type="button" id="toggle-confirm-pw" aria-label="Show confirm password">Show</button>
+            </div>
+            <p class="err" id="confirm-password-err"></p>
+          </div>
+          <button class="btn primary block" type="submit">Create account</button>
+        </form>
+        <p class="muted" style="margin-top:1rem">Already registered? <a href="login.html">Log in</a></p>
+      </div>
     </div>
-  </section>
-</main>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderHeader("");
+      const f = $("register-form"), a = $("alert");
 
-<script src="app.js"></script>
-<script>
-(() => {
-  const { $, $$, api, Auth, withLoading, qs, setTitle } = App;
-  setTitle('Create account');
-  const next = qs('next') || 'index.html';
-  const safeNext = /^[a-z0-9_\-]+\.html(\?.*)?$/i.test(next) ? next : 'index.html';
-  $('#to-login').href = 'login.html?next=' + encodeURIComponent(safeNext);
+      // Toggle Primary Password visibility
+      $("toggle-pw").onclick = () => {
+        const p = $("password"), s = p.type === "password";
+        p.type = s ? "text" : "password";
+        $("toggle-pw").textContent = s ? "Hide" : "Show";
+      };
 
-  $('#tpw').onclick = () => { const p = $('#password'); const s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('#tpw').textContent = s ? 'Hide' : 'Show'; };
-  $('#password').addEventListener('input', (e) => {
-    const v = e.target.value; let score = 0;
-    if (v.length >= 8) score++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++; if (/\d/.test(v)) score++; if (/[^A-Za-z0-9]/.test(v)) score++;
-    const bar = $('#pw-bar'); bar.style.width = (score * 25) + '%'; bar.style.background = ['#B42318', '#B42318', '#B54708', '#067647', '#067647'][score];
-  });
-  $('#phone').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+      // Toggle Confirm Password visibility
+      $("toggle-confirm-pw").onclick = () => {
+        const p = $("confirm-password"), s = p.type === "password";
+        p.type = s ? "text" : "password";
+        $("toggle-confirm-pw").textContent = s ? "Hide" : "Show";
+      };
 
-  function setErr(id, msg) {
-    const el = $(`[data-for=${id}]`); if (el) el.textContent = msg || '';
-    const inp = $('#' + id); if (inp) inp.classList.toggle('invalid', !!msg);
-  }
-  function validate() {
-    $$('[data-for]').forEach((e) => setErr(e.dataset.for, ''));
-    let ok = true;
-    const v = (id) => $('#' + id).value.trim();
-    if (v('full_name').length < 2) { setErr('full_name', 'Please enter your full name.'); ok = false; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('email'))) { setErr('email', 'Enter a valid email address.'); ok = false; }
-    const pw = $('#password').value;
-    if (pw.length < 8 || pw.length > 15) { setErr('password', 'Password must be 8–15 characters.'); ok = false; }
-    if (v('phone') && !/^\d{11}$/.test(v('phone'))) { setErr('phone', 'Enter exactly 11 digits.'); ok = false; }
-    if (v('age') && (v('age') < 12 || v('age') > 150)) { setErr('age', 'Age must be between 12 and 150.'); ok = false; }
-    return ok;
-  }
+      f.onsubmit = async e => {
+        e.preventDefault();
+        a.classList.remove("show");
+        $$(".err").forEach(x => x.textContent = "");
 
-  $('#reg-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const err = $('#form-error'); err.classList.add('hidden');
-    if (!validate()) return;
-    const body = {
-      email: $('#email').value.trim(), password: $('#password').value, full_name: $('#full_name').value.trim(),
-      phone: $('#phone').value.trim() || null, age: $('#age').value ? Number($('#age').value) : null,
-      gender: $('#gender').value || null, address: $('#address').value.trim() || null
-    };
-    try {
-      await withLoading($('#submit'), async () => {
-        await api('/auth/register', { method: 'POST', body, auth: false });
-        const data = await api('/auth/login', { method: 'POST', body: { email: body.email, password: body.password }, auth: false });
-        Auth.set(data.session_token, data.user);
-      });
-      location.href = safeNext;
-    } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  });
-})();
-</script>
+        const name = $("full_name").value.trim();
+        const email = $("email").value.trim();
+
+        const phone = $("phone").value.trim();
+        const phoneDigits = phone.replace(/\D/g, "");
+        if (phoneDigits.length !== 11) {
+          $("phone-err").textContent = "Please enter a valid 11-digit phone number (e.g., 03001234567).";
+          ok = false;
+        }
+        const p = $("password").value;
+        const c = $("confirm-password").value; // Fixed ID matching HTML
+
+        let ok = true;
+        if (name.length < 2) { $("name-err").textContent = "Enter your full name."; ok = false; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("email-err").textContent = "Enter a valid email address."; ok = false; }
+        if (phone.replace(/\D/g, "").length < 11) { $("phone-err").textContent = "Enter an 11-digit phone number."; ok = false; }
+        if (p.length < 8) { $("password-err").textContent = "Password must be at least 8 characters."; ok = false; }
+        if (p !== c) { $("confirm-password-err").textContent = "Passwords do not match."; ok = false; } // Fixed error ID matching HTML
+        if (!ok) return;
+
+        const b = f.querySelector("button[type=submit]");
+        b.disabled = true;
+        b.textContent = "Creating account…";
+
+        try {
+          const r = await apiFetch("/auth/register", { method: "POST", body: JSON.stringify({ full_name: name, email, phone, password: p }) });
+          const d = await json(r);
+          if (!r.ok) throw new Error(errText(d, "Registration failed."));
+
+          // Auto-login after successful registration
+          const loginRes = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password: p }) });
+          const loginData = await json(loginRes);
+          if (loginRes.ok) {
+            setSession(loginData.session_token || loginData.access_token, loginData.user || { full_name: name, email });
+          }
+
+          toast("Account created. Welcome to Pearl Continental!", "success");
+          location.href = safeNext(new URLSearchParams(location.search).get("next"));
+        } catch (err) {
+          a.textContent = err.message;
+          a.classList.add("show");
+        } finally {
+          b.disabled = false;
+          b.textContent = "Create account";
+        }
+      };
+    });
+  </script>
 </body>
+
+</html> -->
+
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Create account — Pearl Continental</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <main id="main" class="section"
+    style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 136px);">
+    <div class="wrap" style="max-width:480px;width:100%;">
+      <div class="card">
+        <h1>Create your account</h1>
+        <p class="muted">Book faster and keep all reservations in one place.</p>
+        <div class="alert" id="alert" role="alert"></div>
+        <form id="register-form" novalidate>
+          <div class="field">
+            <label for="full_name">Full name</label>
+            <input id="full_name" autocomplete="name" required>
+            <p class="err" id="name-err"></p>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" autocomplete="email" required>
+            <p class="err" id="email-err"></p>
+          </div>
+          <div class="field">
+            <label for="phone">Phone (11 digits)</label>
+            <input id="phone" type="tel" autocomplete="tel" placeholder="03001234567" required>
+            <p class="err" id="phone-err"></p>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="pw">
+              <input id="password" type="password" autocomplete="new-password" required minlength="8">
+              <button type="button" id="toggle-pw">Show</button>
+            </div>
+            <p class="muted" style="font-size:0.8rem; margin-top:.25rem;">Use at least 8 characters.</p>
+            <p class="err" id="password-err"></p>
+          </div>
+          <div class="field">
+            <label for="confirm-password">Confirm password</label>
+            <div class="pw">
+              <input id="confirm-password" type="password" autocomplete="new-password" required minlength="8">
+              <button type="button" id="toggle-confirm-pw" aria-label="Show confirm password">Show</button>
+            </div>
+            <p class="err" id="confirm-password-err"></p>
+          </div>
+          <button class="btn primary lg block" type="submit" style="margin-top:1rem">Create account →</button>
+        </form>
+        <p class="muted" style="margin-top:1rem;text-align:center">Already registered? <a href="login.html">Log in</a>
+        </p>
+      </div>
+    </div>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderHeader("register");
+      const f = $("register-form"), a = $("alert");
+
+      // Toggle Primary Password visibility
+      $("toggle-pw").onclick = () => {
+        const p = $("password"), s = p.type === "password";
+        p.type = s ? "text" : "password";
+        $("toggle-pw").textContent = s ? "Hide" : "Show";
+      };
+
+      // Toggle Confirm Password visibility
+      $("toggle-confirm-pw").onclick = () => {
+        const p = $("confirm-password"), s = p.type === "password";
+        p.type = s ? "text" : "password";
+        $("toggle-confirm-pw").textContent = s ? "Hide" : "Show";
+      };
+
+      f.onsubmit = async e => {
+        e.preventDefault();
+        a.classList.remove("show");
+        $$(".err").forEach(x => x.textContent = "");
+
+        const name = $("full_name").value.trim();
+        const email = $("email").value.trim();
+        const phone = $("phone").value.trim();
+        const p = $("password").value;
+        const c = $("confirm-password").value;
+
+        let ok = true;
+        if (name.length < 2) { $("name-err").textContent = "Enter your full name."; ok = false; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("email-err").textContent = "Enter a valid email address."; ok = false; }
+        if (phone.replace(/\D/g, "").length !== 11) { $("phone-err").textContent = "Please enter a valid 11-digit phone number (e.g., 03001234567)."; ok = false; }
+        if (p.length < 8) { $("password-err").textContent = "Password must be at least 8 characters."; ok = false; }
+        if (p !== c) { $("confirm-password-err").textContent = "Passwords do not match."; ok = false; }
+        if (!ok) return;
+
+        const b = f.querySelector("button[type=submit]");
+        b.disabled = true;
+        b.textContent = "Creating account…";
+
+        try {
+          const r = await apiFetch("/auth/register", { method: "POST", body: JSON.stringify({ full_name: name, email, phone, password: p }) });
+          const d = await json(r);
+          if (!r.ok) throw new Error(errText(d, "Registration failed."));
+
+          // Auto-login after successful registration
+          const loginRes = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password: p }) });
+          const loginData = await json(loginRes);
+          if (loginRes.ok) {
+            setSession(loginData.session_token || loginData.access_token, loginData.user || { full_name: name, email });
+          }
+
+          toast("Account created. Welcome to Pearl Continental!", "success");
+          location.href = safeNext(new URLSearchParams(location.search).get("next"));
+        } catch (err) {
+          a.textContent = err.message;
+          a.classList.add("show");
+        } finally {
+          b.disabled = false;
+          b.textContent = "Create account →";
+        }
+      };
+    });
+  </script>
+</body>
+
 </html>

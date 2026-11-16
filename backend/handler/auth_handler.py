@@ -86,27 +86,19 @@ def get_user_by_session_handler(db: Session, session_token: Optional[str]) -> Op
     
     return db.query(UserAccount).filter_by(id=session.user_id).first()
 
-def update_user_profile_handler(
-    db: Session,
-    user: UserAccount,
-    full_name: Optional[str] = None,
-    phone: Optional[str] = None,
-    age: Optional[int] = None,
-    gender: Optional[str] = None,
-    address: Optional[str] = None
-) -> UserAccount:
-    """Updates user personal details."""
-    if full_name is not None:
-        user.full_name = full_name
-    if phone is not None:
-        user.phone = phone
-    if age is not None:
-        user.age = age
-    if gender is not None:
-        user.gender = gender
-    if address is not None:
-        user.address = address
-    
+ALLOWED_PROFILE_FIELDS = {"full_name", "phone", "age", "gender", "address"}
+
+def update_user_profile_handler(db: Session, user: UserAccount, fields: dict) -> UserAccount:
+    """Updates only the fields the client sent. A value of None clears an optional field."""
+    for key, value in fields.items():
+        if key not in ALLOWED_PROFILE_FIELDS:
+            continue
+        if key == "full_name" and (value is None or not str(value).strip()):
+            raise ValueError("Full name cannot be empty.")
+        if isinstance(value, str):
+            value = value.strip() or None if key != "full_name" else value.strip()
+        setattr(user, key, value)
+
     db.commit()
     db.refresh(user)
     return user
@@ -121,5 +113,3 @@ def change_user_password_handler(db: Session, user: UserAccount, old_password: s
     user.hashed_password = ph.hash(new_password)
     db.commit()
 
-if __name__ == "__main__":
-    pass

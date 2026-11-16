@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Pearl Continental Hotel Lahore — Luxury & Hospitality</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Outfit:wght@400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <main id="main">
+        <section class="hero" id="heroSection"
+            style="background:linear-gradient(rgba(15,23,42,0.6),rgba(15,23,42,0.8)), url('https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1600&q=80') center/cover; padding:7rem 0; color:#fff;">
+
+            <div class="wrap" style="max-width:900px; text-align:center;">
+                <p class="badge b-mute" style="margin-bottom:1rem">Lahore · Pakistan</p>
+                <h1 style="font-size:3rem; margin-bottom:1rem; font-family:'Fraunces',serif;">Experience timeless
+                    hospitality at Pearl Continental</h1>
+                <p class="muted" style="color:#cbd5e1; font-size:1.1rem; margin-bottom:2.5rem;">Reserve elegant rooms,
+                    suites, dining, and event spaces with a seamless booking experience.</p>
+
+                <!-- <form class="search" id="search-form" action="book.html" method="get"
+                    style="background:rgba(15,23,42,0.9); padding:1.5rem; border-radius:12px; display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                    <div class="field" style="flex:1; min-width:140px; text-align:left;">
+                        <label for="check-in" style="color:#fff; font-size:.85rem">Check-in</label>
+                        <input type="date" id="check-in" name="check_in" required
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                    </div>
+                    <div class="field" style="flex:1; min-width:140px; text-align:left;">
+                        <label for="check-out" style="color:#fff; font-size:.85rem">Check-out</label>
+                        <input type="date" id="check-out" name="check_out" required
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                    </div>
+                    <div class="field" style="flex:1; min-width:120px; text-align:left;">
+                        <label for="guests" style="color:#fff; font-size:.85rem">Guests</label>
+                        <select id="guests" name="guests"
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                            <option value="1">1 guest</option>
+                            <option value="2" selected>2 guests</option>
+                            <option value="3">3 guests</option>
+                            <option value="4">4 guests</option>
+                        </select>
+                    </div>
+                    <button class="btn primary lg" type="submit" style="padding:.65rem 1.5rem; font-weight:600;">Check
+                        availability</button>
+                </form> -->
+                <form class="search" id="search-form" action="book.html" method="get"
+                    style="background:rgba(15,23,42,0.9); padding:1.5rem; border-radius:12px; display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                    <div class="field" style="flex:1; min-width:140px; text-align:left;">
+                        <label for="check-in" style="color:#fff; font-size:.85rem">Check-in</label>
+                        <input type="date" id="check-in" name="check_in" required
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                    </div>
+                    <div class="field" style="flex:1; min-width:140px; text-align:left;">
+                        <label for="check-out" style="color:#fff; font-size:.85rem">Check-out</label>
+                        <input type="date" id="check-out" name="check_out" required
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                    </div>
+                    <!-- <div class="field" style="flex:1; min-width:120px; text-align:left;">
+                        <label for="guests" style="color:#fff; font-size:.85rem">Guests</label>
+                        <select id="guests" name="guests"
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff;">
+                            <option value="1">1 guest</option>
+                            <option value="2" selected>2 guests</option>
+                            <option value="3">3 guests</option>
+                            <option value="4">4 guests</option>
+                        </select>
+                    </div> -->
+
+                    <!-- Professional Guest & Children Drawer Toggle -->
+                    <div class="field" style="flex:1; min-width:220px; text-align:left; position:relative;">
+                        <label for="guest-dropdown-toggle" style="color:#fff; font-size:.85rem">Guests &amp;
+                            Rooms</label>
+                        <button type="button" id="guest-dropdown-toggle"
+                            style="width:100%; padding:.6rem; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#fff; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font:inherit; text-align:left;">
+                            <span id="guest-summary-text">2 Adults, 0 Children</span>
+                            <small>▼</small>
+                        </button>
+
+                        <div id="guest-popup-drawer"
+                            style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:.5rem; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+                                <div>
+                                    <strong style="color:#fff; display:block; font-size:.9rem;">Adults</strong>
+                                    <small style="color:#94a3b8; font-size:0.75rem;">Ages 12 or above</small>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:.5rem;">
+                                    <button type="button" class="btn sm" id="adult-minus">-</button>
+                                    <span id="adult-count"
+                                        style="color:#fff; min-width:20px; text-align:center;">2</span>
+                                    <button type="button" class="btn sm" id="adult-plus">+</button>
+                                </div>
+                            </div>
+
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+                                <div>
+                                    <strong style="color:#fff; display:block; font-size:.9rem;">Children</strong>
+                                    <small style="color:#94a3b8; font-size:0.75rem;">Ages 0 – 11</small>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:.5rem;">
+                                    <button type="button" class="btn sm" id="child-minus">-</button>
+                                    <span id="child-count"
+                                        style="color:#fff; min-width:20px; text-align:center;">0</span>
+                                    <button type="button" class="btn sm" id="child-plus">+</button>
+                                </div>
+                            </div>
+
+                            <div id="child-ages-wrapper"
+                                style="border-top:1px solid #334155; margin-top:.75rem; padding-top:.75rem; display:none;">
+                                <small style="color:#94a3b8; display:block; margin-bottom:.5rem;">Please select child
+                                    ages:</small>
+                                <div id="drawer-ages-container" style="display:flex; flex-direction:column; gap:.5rem;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+                    <button class="btn primary lg" type="submit"
+                        style="padding:.65rem 1.5rem; font-weight:600; width:100%;">Check availability</button>
+                </form>
+
+            </div>
+
+            <!-- Hero Slider Indicator Dots -->
+            <div class="hero-indicators" id="heroIndicators"></div>
+        </section>
+
+        <div class="wrap trust"
+            style="display:flex; gap:2rem; flex-wrap:wrap; padding:1.5rem 0; border-bottom:1px solid var(--line); color:var(--soft);">
+            <span>✔ Best-rate direct promise</span>
+            <span>✔ Secure 2-hour payment holds</span>
+            <span>✔ Free cancellation on eligible stays</span>
+            <span>✔ 24/7 AI Concierge support</span>
+        </div>
+
+        <!-- Featured Stays -->
+        <section class="section wrap">
+            <div class="row between">
+                <h2>Featured stays</h2>
+                <a class="btn sm" href="book.html">View all rooms →</a>
+            </div>
+            <div class="grid" id="featured" style="margin-top:1.5rem">
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+            </div>
+        </section>
+
+        <!-- Add-on Services Showcase -->
+        <section class="section wrap" style="padding-bottom:4rem;">
+            <h2>Exclusive Add-on Services</h2>
+            <p class="muted">Enhance your stay with our curated hospitality packages.</p>
+            <div class="grid" id="services-showcase" style="margin-top:1.5rem">
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="common.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderHeader("home");
+            const today = localISO(new Date());
+
+            // 1. Read using universal shared prefs helper
+            const prefs = getStayPrefs();
+            const selectedCi = prefs.ci;
+            const selectedCo = prefs.co;
+            let adults = Number(prefs.guests);
+            let children = Number(prefs.children);
+            let childAges = localStorage.getItem("pc_child_ages") ? JSON.parse(localStorage.getItem("pc_child_ages")) : [];
+
+            // Save globally on load
+            saveStayPrefs(selectedCi, selectedCo, adults, children);
+
+            const ci = $("check-in"), co = $("check-out");
+            if (ci) {
+                ci.min = today;
+                ci.value = selectedCi; // <-- Populates the input field with current date correctly
+            }
+            if (co) {
+                co.min = addDays(selectedCi, 1);
+                co.value = selectedCo; // <-- Populates checkout date (at least 1 day after check-in)
+            }
+
+            if (ci && co) {
+                ci.onchange = e => {
+                    const selectedCheckIn = e.target.value;
+                    const nextDay = addDays(selectedCheckIn, 1);
+                    co.min = nextDay; // Enforces check-out minimum to be at least 1 day ahead
+                    if (co.value <= selectedCheckIn) {
+                        co.value = nextDay; // Auto-corrects check-out if it's less than 1 day
+                    }
+                    saveStayPrefs(ci.value, co.value, adults, children);
+                };
+
+                co.onchange = () => {
+                    saveStayPrefs(ci.value, co.value, adults, children);
+                };
+            }
+
+            const toggleBtn = $("guest-dropdown-toggle");
+            const drawer = $("guest-popup-drawer");
+            const summaryText = $("guest-summary-text");
+            const adultCountEl = $("adult-count");
+            const childCountEl = $("child-count");
+
+            function updateSummary() {
+                if (summaryText) {
+                    summaryText.textContent = `${adults} Adult${adults === 1 ? '' : 's'}, ${children} Child${children === 1 ? '' : 'ren'}`;
+                }
+                const currentCi = ci ? ci.value : selectedCi;
+                const currentCo = co ? co.value : selectedCo;
+                saveStayPrefs(currentCi, currentCo, adults, children);
+            }
+
+            function renderDrawerAges() {
+                const wrapper = $("child-ages-wrapper");
+                const container = $("drawer-ages-container");
+                if (!wrapper || !container) return;
+
+                if (children > 0) {
+                    wrapper.style.display = "block";
+                    container.innerHTML = Array.from({ length: children }, (_, i) => {
+                        const age = childAges[i] !== undefined && childAges[i].age !== undefined ? childAges[i].age : 5;
+                        return `
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <label style="color:#cbd5e1; font-size:0.8rem;">Child ${i + 1} Age</label>
+                            <select class="drawer-age-select" data-index="${i}" style="padding:.3rem; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #334155;">
+                               ${Array.from({ length: 12 }, (_, a) => {
+                            let label = `${a} year${a === 1 ? '' : 's'}`;
+                            if (a === 0) label = "Infant (Under 1)";
+                            return `<option value="${a}" ${age === a ? 'selected' : ''}>${label}</option>`;
+                        }).join('')}
+                            </select>
+                        </div>
+                    `;
+                    }).join('');
+
+                    container.querySelectorAll(".drawer-age-select").forEach(sel => {
+                        sel.onchange = e => {
+                            const idx = Number(e.target.getAttribute("data-index"));
+                            if (!childAges[idx]) childAges[idx] = {};
+                            childAges[idx].age = Number(e.target.value);
+                            localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                        };
+                    });
+                } else {
+                    wrapper.style.display = "none";
+                    container.innerHTML = "";
+                    localStorage.removeItem("pc_child_ages");
+                }
+            }
+
+            if (toggleBtn && drawer) {
+                toggleBtn.onclick = e => {
+                    e.stopPropagation();
+                    drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+                };
+                document.addEventListener("click", e => {
+                    if (!drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        drawer.style.display = "none";
+                    }
+                });
+            }
+
+            if ($("adult-minus")) $("adult-minus").onclick = () => { if (adults > 1) { adults--; adultCountEl.textContent = adults; updateSummary(); } };
+            if ($("adult-plus")) $("adult-plus").onclick = () => { if (adults < 10) { adults++; adultCountEl.textContent = adults; updateSummary(); } };
+
+            if ($("child-minus")) $("child-minus").onclick = () => {
+                if (children > 0) {
+                    children--;
+                    childCountEl.textContent = children;
+                    childAges.pop();
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+            if ($("child-plus")) $("child-plus").onclick = () => {
+                if (children < 6) {
+                    children++;
+                    childCountEl.textContent = children;
+                    childAges.push({ age: 5 });
+                    localStorage.setItem("pc_child_ages", JSON.stringify(childAges));
+                    updateSummary();
+                    renderDrawerAges();
+                }
+            };
+
+            if (adultCountEl) adultCountEl.textContent = adults;
+            if (childCountEl) childCountEl.textContent = children;
+            updateSummary();
+            renderDrawerAges();
+
+            const searchForm = $("search-form");
+            if (searchForm) {
+                searchForm.onsubmit = e => {
+                    e.preventDefault();
+                    const currentCi = ci ? ci.value : selectedCi;
+                    const currentCo = co ? co.value : selectedCo;
+
+                    // Save globally so book.html and checkout.html instantly match
+                    saveStayPrefs(currentCi, currentCo, adults, children);
+
+                    location.href = `book.html?check_in=${currentCi}&check_out=${currentCo}&guests=${adults}&children=${children}`;
+                };
+            }
+
+            // --- HERO SLIDER LOGIC ---
+            const heroImages = [
+                "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1600&q=80",
+                "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1600&q=80",
+                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80"
+            ];
+            let currentSlide = 0;
+            const heroSection = $("heroSection");
+            const indicatorsContainer = $("heroIndicators");
+
+            if (indicatorsContainer) {
+                heroImages.forEach((_, idx) => {
+                    const dot = document.createElement("button");
+                    dot.className = `hero-dot ${idx === 0 ? "active" : ""}`;
+                    dot.setAttribute("aria-label", `Slide ${idx + 1}`);
+                    dot.onclick = () => setSlide(idx);
+                    indicatorsContainer.appendChild(dot);
+                });
+            }
+
+            function setSlide(index) {
+                currentSlide = index;
+                if (heroSection) {
+                    heroSection.style.backgroundImage = `linear-gradient(rgba(15,23,42,0.6),rgba(15,23,42,0.8)), url('${heroImages[currentSlide]}')`;
+                }
+                if (indicatorsContainer) {
+                    Array.from(indicatorsContainer.children).forEach((dot, idx) => {
+                        dot.classList.toggle("active", idx === currentSlide);
+                    });
+                }
+            }
+
+            setInterval(() => {
+                currentSlide = (currentSlide + 1) % heroImages.length;
+                setSlide(currentSlide);
+            }, 3000);
+
+            // Fetch Featured Stays using current selected dates and adult count
+            try {
+                const currentCi = ci ? ci.value : selectedCi;
+                const currentCo = co ? co.value : selectedCo;
+                const r = await apiFetch(`/rooms/availability?check_in=${currentCi}&check_out=${currentCo}&guests=${adults}`);
+                const d = await json(r);
+                const rooms = Array.isArray(d.availability) ? d.availability : (d.rooms || d.items || []);
+
+                const availableRooms = rooms.filter(x => x.is_available !== false && (x.available_rooms ?? 1) > 0);
+                const featuredList = (availableRooms.length ? availableRooms : rooms).slice(0, 3);
+
+
+                if ($("featured")) {
+                    // $("featured").innerHTML = rooms.length ? rooms.slice(0, 3).map(x => {
+                    //     const roomId = x.id || x.room_type_id || x.room_id || "";
+                    //     const roomName = x.name || x.room_type || "Luxury Room";
+                    //     const roomDesc = x.description || "Elegant accommodation with modern comforts.";
+                    //     const roomPrice = x.price || x.base_price || 0;
+                    //     const roomImg = x.image_url || x.image || "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=70";
+                    //     const amenities = Array.isArray(x.amenities) ? x.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+
+                    //     return `
+                    //     <article class="card room" data-room-id="${esc(roomId)}">
+                    //         <img src="${esc(roomImg)}" alt="${esc(roomName)}">
+                    //         <div class="body">
+                    //             <h3>${esc(roomName)}</h3>
+                    //             <p>${esc(roomDesc)}</p>
+                    //             <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                    //             <div class="row between" style="margin-top:auto; align-items:center;">
+                    //                 <span class="price">${fmtPKR(roomPrice)}<small> / night</small></span>
+                    //                 <div class="row" style="gap:.5rem;">
+                    //                     <button class="btn sm btn-details" type="button">View details</button>
+                    //                     <button class="btn sm primary btn-select" type="button">Select room →</button>
+                    //                 </div>
+                    //             </div>
+                    //         </div>
+                    //     </article>`;
+                    // }).join("") : '<p>No featured rooms available right now.</p>';
+
+
+                    $("featured").innerHTML = featuredList.length ? featuredList.map(x => {
+                        const roomId = x.id || x.room_type_id || x.room_id || "";
+                        const roomName = x.name || x.room_type || "Luxury Room";
+                        const roomDesc = x.description || "Elegant accommodation with modern comforts.";
+                        const roomPrice = x.price || x.base_price || 0;
+                        const roomImg = x.image_url || x.image || "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=70";
+                        const amenities = Array.isArray(x.amenities) ? x.amenities : ["King Bed", "Wi-Fi", "Air Conditioning"];
+
+                        return `
+                        <article class="card room" data-room-id="${esc(roomId)}">
+                            <img src="${esc(roomImg)}" alt="${esc(roomName)}">
+                            <div class="body">
+                                <h3>${esc(roomName)}</h3>
+                                <p>${esc(roomDesc)}</p>
+                                <div class="chips">${amenities.slice(0, 3).map(a => `<span class="chip">${esc(a)}</span>`).join("")}</div>
+                                <div class="row between" style="margin-top:auto; align-items:center;">
+                                    <span class="price">${fmtPKR(roomPrice)}<small> / night</small></span>
+                                    <div class="row" style="gap:.5rem;">
+                                        <button class="btn sm btn-details" type="button">View details</button>
+                                        <button class="btn sm primary btn-select" type="button">Select room →</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>`;
+                    }).join("") : '<p>No featured rooms available right now.</p>';
+
+                    // --- DYNAMIC CLICK INTERCEPTOR FOR ROOM CARDS ---
+                    $("featured").onclick = e => {
+                        const article = e.target.closest("article.card.room");
+                        if (!article) return;
+                        const roomId = article.getAttribute("data-room-id");
+                        const activeCi = ci ? ci.value : selectedCi;
+                        const activeCo = co ? co.value : selectedCo;
+
+                        saveStayPrefs(activeCi, activeCo, adults, children);
+
+                        if (e.target.classList.contains("btn-select")) {
+                            location.href = `checkout.html?room=${encodeURIComponent(roomId)}&check_in=${activeCi}&check_out=${activeCo}&guests=${adults}&children=${children}`;
+                        } else if (e.target.classList.contains("btn-details")) {
+                            location.href = `room-detail.html?room=${encodeURIComponent(roomId)}&check_in=${activeCi}&check_out=${activeCo}&guests=${adults}&children=${children}`;
+                        }
+                    };
+                }
+            } catch (err) {
+                if ($("featured")) {
+                    $("featured").innerHTML = `<div class="alert show">Unable to load featured rooms: ${esc(err.message)}</div>`;
+                }
+            }
+
+            // Fetch Add-on Services dynamically and make buttons interactive
+            try {
+                const sr = await apiFetch("/services");
+                const sd = await json(sr);
+                const services = sd.services || [];
+
+                if ($("services-showcase")) {
+                    $("services-showcase").innerHTML = services.length ? services.map(s => `
+                    <article class="card" style="background:var(--s1); display:flex; flex-direction:column; justify-content:space-between;">
+                        <div>
+                            <h3>${esc(s.name)}</h3>
+                            <p class="muted" style="margin-top:.4rem">${esc(s.description || "Enhance your experience at Pearl Continental Lahore.")}</p>
+                        </div>
+                        <div class="row between" style="margin-top:1.5rem; align-items:center;">
+                            <span class="price" style="font-size:1.15rem">${fmtPKR(s.price)} <small>/ ${esc(s.pricing_unit)}</small></span>
+                            <button class="btn sm btn-service" type="button">Book with stay →</button>
+                        </div>
+                    </article>`).join("") : '<p class="muted">No add-on services available at the moment.</p>';
+
+                    $("services-showcase").onclick = e => {
+                        if (!e.target.classList.contains("btn-service")) return;
+
+                        const currentCi = ci ? ci.value : selectedCi;
+                        const currentCo = co ? co.value : selectedCo;
+
+                        saveStayPrefs(currentCi, currentCo, adults, children);
+                        location.href = `book.html?check_in=${currentCi}&check_out=${currentCo}&guests=${adults}&children=${children}`;
+                    };
+                }
+            } catch {
+                if ($("services-showcase")) {
+                    $("services-showcase").innerHTML = '<p class="muted">Add-on services will appear here.</p>';
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html

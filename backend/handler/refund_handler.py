@@ -155,12 +155,16 @@ def execute_refund_and_cancel_handler(
 
     try:
         from util.email_service import send_smtp_email
-        send_smtp_email(
+        ok = send_smtp_email(
             to_email=guest_email,
             subject=notification.subject,
             body_text=notification.body
         )
-        notification.sent_at = datetime.now(timezone.utc)
+        if ok:
+            notification.sent_at = datetime.now(timezone.utc)
+        else:
+            notification.attempts += 1
+            notification.last_error = "SMTP delivery failed"
         db.commit()
     except Exception as email_err:
         notification.last_error = str(email_err)

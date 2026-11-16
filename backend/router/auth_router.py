@@ -22,7 +22,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=15)
     full_name: str
-    phone: Optional[str] = Field(None, pattern=r"^\d{11}$")
+    phone: Optional[str] = Field(None, pattern=r"^(\+92)?3\d{9}$") # Accepts 3001234567 or +923001234567
     age: Optional[int] = Field(None, ge=12, le=150)
     gender: Optional[GenderType] = None
     address: Optional[str] = None
@@ -126,15 +126,11 @@ def update_profile(
     db: Session = Depends(get_db)
 ):
     """Updates user personal details (phone, age, gender, address, etc.)."""
-    update_user_profile_handler(
-        db=db,
-        user=current_user,
-        full_name=req.full_name,
-        phone=req.phone,
-        age=req.age,
-        gender=req.gender,
-        address=req.address
-    )
+    try:
+        # exclude_unset=True -> only fields the client actually sent; null means "clear this field"
+        update_user_profile_handler(db, current_user, req.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "message": "Profile updated successfully."}
 
 @router.post("/change-password")
